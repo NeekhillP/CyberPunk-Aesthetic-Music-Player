@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayerStore } from '../store/playerStore';
-import { Volume2, VolumeX, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { Gauge } from 'lucide-react';
 
 export const TransportControls = () => {
   const {
@@ -14,11 +14,18 @@ export const TransportControls = () => {
     toggleMute,
     autoScroll,
     toggleAutoScroll,
+    playbackRate,
+    setPlaybackRate,
   } = usePlayerStore();
 
   const handleVolumeChange = (e) => {
     const val = parseFloat(e.target.value);
     setVolume(val);
+  };
+
+  const handleRateChange = (e) => {
+    const val = parseFloat(e.target.value);
+    setPlaybackRate(val);
   };
 
   return (
@@ -65,7 +72,6 @@ export const TransportControls = () => {
           <span className="text-[10px]">&gt; VOL</span>
         </button>
 
-        {/* Custom Retro Volume Slider */}
         <div className="relative flex-1 flex items-center">
           <input
             type="range"
@@ -76,7 +82,6 @@ export const TransportControls = () => {
             onChange={handleVolumeChange}
             className="w-full h-3 bg-[#120207] border border-cyber-borderDim rounded-none appearance-none cursor-pointer accent-cyber-neon [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:bg-cyber-neon [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-[0_0_8px_#ff2a6d]"
           />
-          {/* Visual volume level fill */}
           <div 
             className="absolute left-0 top-1/2 -translate-y-1/2 h-1.5 bg-cyber-neon/40 pointer-events-none"
             style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
@@ -88,7 +93,67 @@ export const TransportControls = () => {
         </span>
       </div>
 
-      {/* Auto-scroll Button matching the reference screenshot */}
+      {/* Playback Speed / Lo-Fi Modulation Section */}
+      <div className="pt-1 border-t border-cyber-borderDim/50 space-y-1.5">
+        <div className="flex items-center justify-between text-[10px] text-cyber-textDim">
+          <span className="flex items-center gap-1">
+            <Gauge size={11} className="text-cyber-cyan" />
+            <span>&gt; SPEED</span>
+          </span>
+          <span className="text-cyber-cyan text-glow-cyan font-bold">
+            {playbackRate.toFixed(2)}x
+          </span>
+        </div>
+
+        {/* Speed Slider */}
+        <div className="relative flex items-center">
+          <input
+            type="range"
+            min="0.5"
+            max="2.0"
+            step="0.05"
+            value={playbackRate}
+            onChange={handleRateChange}
+            className="w-full h-2 bg-[#120207] border border-cyber-borderDim rounded-none appearance-none cursor-pointer accent-cyber-cyan [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-cyber-cyan [&::-webkit-slider-thumb]:border [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-[0_0_8px_#05d9e8]"
+          />
+        </div>
+
+        {/* Speed Preset Badges */}
+        <div className="grid grid-cols-3 gap-1 pt-0.5 text-[9px]">
+          <button
+            onClick={() => setPlaybackRate(0.8)}
+            className={`py-0.5 border transition-all text-center ${
+              playbackRate === 0.8
+                ? 'border-cyber-cyan bg-cyber-cyan/20 text-white font-bold shadow-cyan'
+                : 'border-cyber-borderDim bg-cyber-bgDark text-cyber-textDim hover:border-cyber-cyan/50 hover:text-white'
+            }`}
+          >
+            0.8x SLOWED
+          </button>
+          <button
+            onClick={() => setPlaybackRate(1.0)}
+            className={`py-0.5 border transition-all text-center ${
+              playbackRate === 1.0
+                ? 'border-cyber-neon bg-cyber-neon/20 text-white font-bold shadow-neon-sm'
+                : 'border-cyber-borderDim bg-cyber-bgDark text-cyber-textDim hover:border-cyber-neon/50 hover:text-white'
+            }`}
+          >
+            1.0x NORMAL
+          </button>
+          <button
+            onClick={() => setPlaybackRate(1.25)}
+            className={`py-0.5 border transition-all text-center ${
+              playbackRate === 1.25
+                ? 'border-cyber-hotPink bg-cyber-hotPink/20 text-white font-bold shadow-neon-sm'
+                : 'border-cyber-borderDim bg-cyber-bgDark text-cyber-textDim hover:border-cyber-hotPink/50 hover:text-white'
+            }`}
+          >
+            1.25x NIGHT
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-scroll Toggle Button */}
       <button
         onClick={toggleAutoScroll}
         className={`w-full py-1 px-3 border transition-all text-center text-xs font-mono tracking-wider ${

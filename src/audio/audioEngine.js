@@ -2,8 +2,9 @@
  * Web Audio Engine for SEVEN.FM
  * Features:
  * - Real HTML5 Audio Element connected to Web Audio API AudioContext
- * - AnalyserNode (64 FFT bins) for 60fps real frequency spectrum analysis
- * - GainNode for smooth volume and mute management
+ * - AnalyserNode (64 FFT bins & TimeDomain waveform extraction)
+ * - GainNode for Master Volume
+ * - Playback Rate / Speed Modulation controller (0.5x - 2.0x)
  * - Resilient autoplay lifecycle & user gesture activation
  */
 
@@ -15,6 +16,7 @@ class AudioEngine {
     this.analyser = null;
     this.gainNode = null;
     this.volume = 0.8;
+    this.playbackRate = 1.0;
     this.isMuted = false;
     this.isInitialized = false;
 
@@ -35,10 +37,11 @@ class AudioEngine {
     this.audioElement = new Audio();
     this.audioElement.crossOrigin = 'anonymous';
     this.audioElement.preload = 'auto';
+    this.audioElement.playbackRate = this.playbackRate;
 
-    // Analyser Node for FFT frequency data
+    // Analyser Node for FFT frequency & Time Domain data
     this.analyser = this.audioCtx.createAnalyser();
-    this.analyser.fftSize = 64; // 32 frequency bins
+    this.analyser.fftSize = 128; // 64 frequency bins / 128 waveform samples
     this.analyser.smoothingTimeConstant = 0.82;
 
     // Gain Node for Master Volume
@@ -96,11 +99,12 @@ class AudioEngine {
 
     if (!src) return;
 
-    // Check if changing track source
     if (this.audioElement.src !== src && !this.audioElement.src.endsWith(src)) {
       this.audioElement.src = src;
       this.audioElement.load();
     }
+
+    this.audioElement.playbackRate = this.playbackRate;
 
     if (startTime > 0) {
       this.audioElement.currentTime = startTime;
@@ -141,6 +145,13 @@ class AudioEngine {
     this.setVolume(this.volume);
   }
 
+  setPlaybackRate(rate) {
+    this.playbackRate = Math.max(0.25, Math.min(3.0, rate));
+    if (this.audioElement) {
+      this.audioElement.playbackRate = this.playbackRate;
+    }
+  }
+
   getCurrentTime() {
     if (this.audioElement) {
       return this.audioElement.currentTime || 0;
@@ -162,6 +173,16 @@ class AudioEngine {
     const bufferLength = this.analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     this.analyser.getByteFrequencyData(dataArray);
+    return dataArray;
+  }
+
+  getTimeDomainData() {
+    if (!this.analyser) {
+      return new Uint8Array(64).fill(128);
+    }
+    const bufferLength = this.analyser.fftSize;
+    const dataArray = new Uint8Array(bufferLength);
+    this.analyser.getByteTimeDomainData(dataArray);
     return dataArray;
   }
 }
