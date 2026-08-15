@@ -1,13 +1,15 @@
+import { sanitizeMetadata } from './sanitizeQuery';
+
 /**
- * Multi-Tier Lyric Resolution Pipeline
- * - Tier 1: Embedded ID3 Lyrics (SYLT / USLT)
- * - Tier 2: Companion .lrc file
- * - Tier 3: LRCLIB Online API (Synced > Plain)
- * - Tier 4: Terminal Telemetry Fallback
+ * Multi-Tier Multilingual Lyric Resolution Pipeline
+ * - Tier 1: Local Companion .LRC
+ * - Tier 2: Embedded ID3 Lyrics (SYLT / USLT)
+ * - Tier 3: LRCLIB Online API with Multilingual Script Candidates (Latin & Devanagari)
+ * - Tier 4: Terminal Placeholder
  */
 
 export async function resolveTrackLyrics({ title, artist, album, duration, embeddedLyrics, companionLrc }) {
-  // --- Tier 1: Companion .lrc file if provided ---
+  // --- Tier 1: Companion .lrc file ---
   if (companionLrc && companionLrc.trim()) {
     return {
       lrc: companionLrc,
@@ -26,7 +28,6 @@ export async function resolveTrackLyrics({ title, artist, album, duration, embed
         isSynced: true,
       };
     } else {
-      // Plain text embedded lyrics -> format for display
       return {
         lrc: convertPlainTextToLrc(embeddedLyrics, duration),
         source: 'ID3 EMBEDDED (PLAIN)',
@@ -35,19 +36,25 @@ export async function resolveTrackLyrics({ title, artist, album, duration, embed
     }
   }
 
-  // --- Tier 3: LRCLIB Online Telemetry Fetch ---
-  if (title && title !== 'Unknown Track') {
+  // --- Tier 3: LRCLIB Online Telemetry Fetch with Multilingual Candidates ---
+  const sanitized = sanitizeMetadata(title, artist, album);
+  const candidates = sanitized.searchCandidates;
+
+  for (const query of candidates) {
+    if (!query || query.length < 2) continue;
+
     try {
-      const cleanTitle = cleanSearchTerm(title);
-      const cleanArtist = artist && artist !== 'Unknown Artist' ? cleanSearchTerm(artist) : '';
+      // 1. Direct GET by title and artist if both separated
+      let getUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(sanitized.romanTitle || query)}`;
+      if (sanitized.romanArtist && sanitized.romanArtist !== 'Unknown Artist') {
+        getUrl += `&artist_name=${encodeURIComponent(sanitized.romanArtist)}`;
+      }
+      if (duration && duration > 0) {
+        getUrl += `&duration=${Math.round(duration)}`;
+      }
 
-      // 1. Direct Get Query
-      let queryUrl = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}`;
-      if (cleanArtist) queryUrl += `&artist_name=${encodeURIComponent(cleanArtist)}`;
-      if (duration && duration > 0) queryUrl += `&duration=${Math.round(duration)}`;
-
-      let response = await fetch(queryUrl, {
-        headers: { 'User-Agent': 'SevenFM-Terminal-Music-Player/0.2.5 (https://github.com/NeekhillP)' },
+      let response = await fetch(getUrl, {
+        headers: { 'User-Agent': 'SevenFM-Terminal-Music-Player/0.2.7' },
       });
 
       if (response.ok) {
@@ -68,16 +75,15 @@ export async function resolveTrackLyrics({ title, artist, album, duration, embed
         }
       }
 
-      // 2. Search Fallback Query if exact match didn't resolve
-      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(`${cleanArtist} ${cleanTitle}`.trim())}`;
+      // 2. Search Fallback Query with current candidate string
+      const searchUrl = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
       response = await fetch(searchUrl, {
-        headers: { 'User-Agent': 'SevenFM-Terminal-Music-Player/0.2.5' },
+        headers: { 'User-Agent': 'SevenFM-Terminal-Music-Player/0.2.7' },
       });
 
       if (response.ok) {
         const results = await response.json();
         if (Array.isArray(results) && results.length > 0) {
-          // Find first result with synced lyrics or plain lyrics
           const syncedResult = results.find(r => r.syncedLyrics);
           if (syncedResult) {
             return {
@@ -96,26 +102,19 @@ export async function resolveTrackLyrics({ title, artist, album, duration, embed
         }
       }
     } catch (err) {
-      console.warn('LRCLIB lyric fetch telemetry failed:', err);
+      console.warn('LRCLIB candidate query error:', query, err);
     }
   }
 
   // --- Tier 4: Terminal Telemetry Fallback ---
   return {
-    lrc: `[00:00.00]◆ S E V E N . F M ◆ AUDIO BROADCAST
-[00:02.00]TRACK: ${title || 'Audio Stream'}
-[00:04.00]ARTIST: ${artist || 'Local Broadcast'}
-[00:08.00]♪ Synchronized lyric telemetry not found on satellite network ♪
-[00:15.00]♪ Direct audio feed streaming nominal ♪`,
-    source: 'BROADCAST TELEMETRY',
+    lrc: '', // Empty to let user trigger [ + PASTE LRC / TEXT LYRICS ] or view telemetry message
+    source: 'NO TELEMETRY FOUND',
     isSynced: false,
   };
 }
 
-/**
- * Converts un-timestamped plain lyrics into structured line items spread across duration
- */
-function convertPlainTextToLrc(plainText, totalDuration = 180) {
+export function convertPlainTextToLrc(plainText, totalDuration = 180) {
   const lines = plainText.split('\n').map(l => l.trim()).filter(Boolean);
   if (lines.length === 0) return '[00:00.00]♪ Instrumental / No Lyrics ♪';
 
@@ -123,21 +122,11 @@ function convertPlainTextToLrc(plainText, totalDuration = 180) {
   let result = `[00:00.00]◆ PLAIN LYRICS TELEMETRY ◆\n`;
 
   lines.forEach((line, idx) => {
-    const timeSec = Math.round(5 + idx * interval);
+    const timeSec = Math.round(4 + idx * interval);
     const mins = Math.floor(timeSec / 60).toString().padStart(2, '0');
     const secs = (timeSec % 60).toString().padStart(2, '0');
     result += `[${mins}:${secs}.00] ${line}\n`;
   });
 
   return result;
-}
-
-/**
- * Strips bracket tags like (Official Video), [Remastered], etc. for cleaner search
- */
-function cleanSearchTerm(term) {
-  return term
-    .replace(/\s*(\(|\[)(feat\.|ft\.|official|audio|video|remaster|live|explicit|lyrics).*?(\)|\])/gi, '')
-    .replace(/\.[^/.]+$/, '')
-    .trim();
 }

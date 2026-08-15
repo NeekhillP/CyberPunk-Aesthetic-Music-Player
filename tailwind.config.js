@@ -29,7 +29,8 @@ export default {
         }
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', '"Share Tech Mono"', 'Consolas', 'monospace'],
+        mono: ['"JetBrains Mono"', '"Noto Sans Devanagari"', '"Share Tech Mono"', 'Consolas', 'monospace'],
+        sans: ['"Noto Sans Devanagari"', '"JetBrains Mono"', 'sans-serif'],
         pixel: ['"VT323"', '"JetBrains Mono"', 'monospace'],
         cyber: ['"Share Tech Mono"', '"JetBrains Mono"', 'monospace'],
       },

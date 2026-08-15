@@ -73,7 +73,7 @@ export const usePlayerStore = create(
         if (index < 0 || index >= playlist.length) return;
 
         const track = playlist[index];
-        const parsed = parseLRC(track.lrc);
+        const parsed = parseLRC(track.lrc || '');
 
         set({
           currentTrackIndex: index,
@@ -139,6 +139,28 @@ export const usePlayerStore = create(
         set({ duration });
       },
 
+      // Update current track's lyrics dynamically (from manual paste or live edit)
+      updateActiveTrackLyrics: (lrcText, sourceLabel = 'MANUAL PASTE') => {
+        const { playlist, currentTrackIndex, currentTime } = get();
+        const parsed = parseLRC(lrcText);
+        const updatedPlaylist = [...playlist];
+        if (updatedPlaylist[currentTrackIndex]) {
+          updatedPlaylist[currentTrackIndex] = {
+            ...updatedPlaylist[currentTrackIndex],
+            lrc: lrcText,
+            lyricSource: sourceLabel,
+            isSynced: lrcText.includes('['),
+          };
+        }
+
+        const activeIdx = getActiveLyricIndex(parsed.lines, currentTime);
+        set({
+          playlist: updatedPlaylist,
+          parsedLyrics: parsed,
+          activeLyricIndex: activeIdx,
+        });
+      },
+
       addBatchTracks: (newTracks) => {
         if (!newTracks || newTracks.length === 0) return;
         set((state) => {
@@ -152,7 +174,7 @@ export const usePlayerStore = create(
 
       removeTrack: (index) => {
         const { playlist, currentTrackIndex, playTrack } = get();
-        if (playlist.length <= 1) return; // Keep at least one track
+        if (playlist.length <= 1) return;
         
         const updated = playlist.filter((_, i) => i !== index);
         let newIndex = currentTrackIndex;
