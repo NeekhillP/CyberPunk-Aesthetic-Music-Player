@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
 import { extractAudioMetadata } from '../utils/metadataExtractor';
 import { resolveTrackLyrics } from '../utils/lyricsService';
-import { X, Upload, FileAudio, FileText, CheckCircle2, Music, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { resolveTrackArtwork } from '../utils/artworkService';
+import { X, Upload, CheckCircle2, Trash2, Loader2 } from 'lucide-react';
 
 export const UploadModal = () => {
   const { isUploadOpen, setUploadOpen, addBatchTracks } = usePlayerStore();
@@ -34,14 +35,23 @@ export const UploadModal = () => {
 
     for (let i = 0; i < audioFiles.length; i++) {
       const audio = audioFiles[i];
-      setScanningStatus(`[SCANNING ID3/TELEMETRY ${i + 1}/${audioFiles.length}: ${audio.name}]`);
+      setScanningStatus(`[SCANNING ID3 ${i + 1}/${audioFiles.length}: ${audio.name}]`);
 
-      // 1. Extract embedded ID3 metadata & cover art
+      // 1. Extract embedded ID3 metadata & APIC picture
       const meta = await extractAudioMetadata(audio);
       const baseName = audio.name.replace(/\.[^/.]+$/, '').toLowerCase();
       const companionLrc = lrcMap.get(baseName) || (lrcFiles.length === 1 ? await lrcFiles[0].text() : '');
 
-      // 2. Resolve Synced / Plain / LRCLIB Lyrics
+      // 2. Resolve Artwork (Embedded ID3 -> iTunes Search API 600x600 HD -> Fallback)
+      setScanningStatus(`[RESOLVING ARTWORK: ${meta.title}...]`);
+      const artworkResult = await resolveTrackArtwork({
+        title: meta.title,
+        artist: meta.artist,
+        album: meta.album,
+        embeddedArtworkUrl: meta.artworkUrl,
+      });
+
+      // 3. Resolve Lyrics (Embedded ID3 -> Companion .LRC -> LRCLIB Online API)
       setScanningStatus(`[RESOLVING LYRICS: ${meta.title}...]`);
       const lyricResult = await resolveTrackLyrics({
         title: meta.title,
@@ -57,8 +67,11 @@ export const UploadModal = () => {
         title: meta.title || audio.name,
         artist: meta.artist || 'Local Audio',
         album: meta.album || 'Local Broadcast',
-        cover: meta.artworkUrl || '/album_covers/loving_machine.jpg',
-        hasCustomArt: Boolean(meta.artworkUrl),
+        coverUrl: artworkResult.artworkUrl,
+        artwork: artworkResult.artworkUrl,
+        cover: artworkResult.artworkUrl,
+        artworkSource: artworkResult.source,
+        hasCustomArt: artworkResult.isCustom,
         audioUrl: URL.createObjectURL(audio),
         lrc: lyricResult.lrc,
         lyricSource: lyricResult.source,
@@ -128,7 +141,7 @@ export const UploadModal = () => {
                 {scanningStatus || '[SCANNING ID3/TELEMETRY...]'}
               </div>
               <p className="text-[10px] text-cyber-cyan">
-                Extracting embedded cover art &amp; querying LRCLIB satellite database...
+                Extracting embedded ID3 art, querying iTunes 600x600 HD cover &amp; LRCLIB satellite database...
               </p>
             </div>
           ) : (
@@ -149,7 +162,7 @@ export const UploadModal = () => {
                   DROP AUDIO (.mp3, .wav, .flac, .m4a) &amp; .LRC FILES HERE
                 </p>
                 <p className="text-[11px] text-cyber-textDim">
-                  Automatic ID3 Cover Art Extraction • Multi-tier LRCLIB Lyric Auto-Sync
+                  Auto ID3 + iTunes HD Cover Art Lookup • Multi-Tier LRCLIB Lyric Auto-Sync
                 </p>
 
                 <label className="mt-2 inline-block px-3 py-1.5 bg-cyber-bgCardLight border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black cursor-pointer transition-colors font-bold text-xs">
@@ -171,7 +184,7 @@ export const UploadModal = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-[11px] text-cyber-textDim">
                 <span>TELEMETRY READY ({stagedFiles.length})</span>
-                <span className="text-cyber-cyan">METADATA &amp; ART EXTRACTED</span>
+                <span className="text-cyber-cyan">COVER ART &amp; LYRICS RESOLVED</span>
               </div>
 
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
@@ -183,16 +196,17 @@ export const UploadModal = () => {
                     <div className="flex items-center space-x-2.5 min-w-0">
                       {/* Album Art Thumbnail */}
                       <img
-                        src={track.cover}
+                        src={track.coverUrl || track.cover}
                         alt="art"
-                        className="w-8 h-8 object-cover border border-cyber-neon/50 shrink-0 duotone-filter"
+                        className="w-9 h-9 object-cover border border-cyber-neon/50 shrink-0 duotone-filter"
+                        onError={(e) => { e.currentTarget.src = '/album_covers/loving_machine.jpg'; }}
                       />
                       <div className="min-w-0">
                         <div className="text-white font-bold truncate tracking-wide text-xs">
                           {track.title}
                         </div>
                         <div className="text-[10px] text-cyber-pinkDim truncate">
-                          {track.artist}
+                          {track.artist} • <span className="text-cyber-cyan">{track.artworkSource}</span>
                         </div>
                       </div>
                     </div>
@@ -229,7 +243,7 @@ export const UploadModal = () => {
             }`}
           >
             <CheckCircle2 size={16} />
-            <span>TRANSMIT {stagedFiles.length} EXTRACTED TRACKS TO PLAYER</span>
+            <span>TRANSMIT {stagedFiles.length} TRACKS TO PLAYER</span>
           </button>
         </div>
       </div>

@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
 
 export const AlbumArt = () => {
   const { playlist, currentTrackIndex, isPlaying } = usePlayerStore();
   const currentTrack = playlist[currentTrackIndex] || {};
+  const [imageError, setImageError] = useState(false);
+
+  const displayCover = imageError 
+    ? '/album_covers/loving_machine.jpg' 
+    : (currentTrack.coverUrl || currentTrack.artwork || currentTrack.cover || '/album_covers/loving_machine.jpg');
 
   return (
     <div className="relative w-full aspect-square border border-cyber-neon bg-cyber-bgCard shadow-neon overflow-hidden group">
@@ -13,10 +18,12 @@ export const AlbumArt = () => {
       <div className="absolute bottom-0 left-0 w-2 h-2 border-b-2 border-l-2 border-white z-20" />
       <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white z-20" />
 
-      {/* Album Artwork Image */}
+      {/* Album Artwork Image with dynamic binding & error recovery */}
       <img
-        src={currentTrack.cover || '/album_covers/loving_machine.jpg'}
+        key={displayCover}
+        src={displayCover}
         alt={currentTrack.title || 'Album Cover'}
+        onError={() => setImageError(true)}
         className={`w-full h-full object-cover duotone-filter transition-transform duration-700 ${
           isPlaying ? 'scale-[1.02]' : 'scale-100 opacity-90'
         }`}

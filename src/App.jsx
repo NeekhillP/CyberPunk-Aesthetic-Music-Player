@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { usePlayerStore } from './store/playerStore';
 import { extractAudioMetadata } from './utils/metadataExtractor';
 import { resolveTrackLyrics } from './utils/lyricsService';
+import { resolveTrackArtwork } from './utils/artworkService';
 import { TopBar } from './components/TopBar';
 import { AlbumArt } from './components/AlbumArt';
 import { MetadataCard } from './components/MetadataCard';
@@ -87,7 +88,7 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, seek, currentTime, duration, volume, setVolume, toggleMute, toggleAutoScroll, nextTrack, prevTrack]);
 
-  // Global Window Drag and Drop with ID3 & LRCLIB Pipeline
+  // Global Window Drag and Drop with ID3, Artwork & LRCLIB Pipeline
   const handleWindowDragOver = (e) => {
     e.preventDefault();
     setIsWindowDragging(true);
@@ -122,12 +123,22 @@ export const App = () => {
       const newTracks = [];
       for (let i = 0; i < audioFiles.length; i++) {
         const audio = audioFiles[i];
-        setGlobalScanStatus(`[SCANNING ID3/TELEMETRY ${i + 1}/${audioFiles.length}: ${audio.name}]`);
+        setGlobalScanStatus(`[SCANNING ID3 ${i + 1}/${audioFiles.length}: ${audio.name}]`);
 
         const meta = await extractAudioMetadata(audio);
         const baseName = audio.name.replace(/\.[^/.]+$/, '').toLowerCase();
         const companionLrc = lrcMap.get(baseName) || (lrcFiles.length === 1 ? await lrcFiles[0].text() : '');
 
+        // Resolve Artwork
+        setGlobalScanStatus(`[RESOLVING ARTWORK: ${meta.title}...]`);
+        const artworkResult = await resolveTrackArtwork({
+          title: meta.title,
+          artist: meta.artist,
+          album: meta.album,
+          embeddedArtworkUrl: meta.artworkUrl,
+        });
+
+        // Resolve Lyrics
         setGlobalScanStatus(`[RESOLVING LYRICS: ${meta.title}...]`);
         const lyricResult = await resolveTrackLyrics({
           title: meta.title,
@@ -143,8 +154,11 @@ export const App = () => {
           title: meta.title || audio.name,
           artist: meta.artist || 'Local Audio',
           album: meta.album || 'Local Broadcast',
-          cover: meta.artworkUrl || '/album_covers/loving_machine.jpg',
-          hasCustomArt: Boolean(meta.artworkUrl),
+          coverUrl: artworkResult.artworkUrl,
+          artwork: artworkResult.artworkUrl,
+          cover: artworkResult.artworkUrl,
+          artworkSource: artworkResult.source,
+          hasCustomArt: artworkResult.isCustom,
           audioUrl: URL.createObjectURL(audio),
           lrc: lyricResult.lrc,
           lyricSource: lyricResult.source,
@@ -183,7 +197,7 @@ export const App = () => {
             &gt; DETECTED AUDIO / LRC TELEMETRY
           </h2>
           <p className="text-sm text-cyber-cyan mt-2">
-            RELEASE TO EXTRACT ID3 METADATA, EMBEDDED ART &amp; AUTO-SYNC LRCLIB LYRICS
+            RELEASE TO EXTRACT ID3 METADATA, FETCH ITUNES HD ARTWORK &amp; AUTO-SYNC LYRICS
           </p>
         </div>
       )}
@@ -196,7 +210,7 @@ export const App = () => {
             {globalScanStatus || '[SCANNING ID3/TELEMETRY...]'}
           </h3>
           <p className="text-xs text-cyber-cyan mt-2">
-            Extracting embedded artwork and querying satellite lyric databases...
+            Resolving 600x600 HD artwork and querying satellite lyric databases...
           </p>
         </div>
       )}
