@@ -1,75 +1,96 @@
 import React, { useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
-import { X, Upload, FileAudio, FileText, CheckCircle2 } from 'lucide-react';
+import { X, Upload, FileAudio, FileText, CheckCircle2, Music, Trash2 } from 'lucide-react';
 
 export const UploadModal = () => {
-  const { isUploadOpen, setUploadOpen, addCustomTrack } = usePlayerStore();
-  const [audioFile, setAudioFile] = useState(null);
-  const [lrcFile, setLrcFile] = useState(null);
-  const [lrcContent, setLrcContent] = useState('');
-  const [title, setTitle] = useState('');
-  const [artist, setArtist] = useState('');
+  const { isUploadOpen, setUploadOpen, addBatchTracks } = usePlayerStore();
+  const [stagedFiles, setStagedFiles] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   if (!isUploadOpen) return null;
 
-  const handleAudioChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setAudioFile(file);
-      // Auto-populate title if empty
-      if (!title) {
-        const cleanName = file.name.replace(/\.[^/.]+$/, '');
-        setTitle(cleanName);
+  const processFileList = async (files) => {
+    const fileArray = Array.from(files);
+    const audioFiles = fileArray.filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(f.name));
+    const lrcFiles = fileArray.filter(f => /\.(lrc|txt)$/i.test(f.name));
+
+    // Read all LRC contents
+    const lrcMap = new Map();
+    for (const lrcFile of lrcFiles) {
+      const text = await lrcFile.text();
+      const baseName = lrcFile.name.replace(/\.[^/.]+$/, '').toLowerCase();
+      lrcMap.set(baseName, text);
+    }
+
+    const newTracks = [];
+
+    // Pair audio with corresponding LRC
+    for (const audio of audioFiles) {
+      const baseName = audio.name.replace(/\.[^/.]+$/, '');
+      const cleanBase = baseName.toLowerCase();
+      const matchedLrc = lrcMap.get(cleanBase) || (lrcFiles.length === 1 ? await lrcFiles[0].text() : '');
+
+      // Parse metadata from filename if formatted as "Artist - Title"
+      let artist = 'Local Audio';
+      let title = baseName;
+      if (baseName.includes(' - ')) {
+        const parts = baseName.split(' - ');
+        artist = parts[0].trim();
+        title = parts.slice(1).join(' - ').trim();
       }
+
+      newTracks.push({
+        id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title,
+        artist,
+        cover: '/album_covers/loving_machine.jpg',
+        audioUrl: URL.createObjectURL(audio),
+        lrc: matchedLrc || `[00:00.00]${title} - ${artist}\n[00:04.00]♪ Audio telemetry streaming ♪`,
+        duration: 180,
+        station: 'LOCAL // STORAGE',
+        genre: 'LOCAL // MEDIA',
+        hasLrc: Boolean(matchedLrc),
+      });
+    }
+
+    if (newTracks.length > 0) {
+      setStagedFiles(prev => [...prev, ...newTracks]);
     }
   };
 
-  const handleLrcChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setLrcFile(file);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setLrcContent(event.target.result);
-      };
-      reader.readAsText(file);
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files) {
+      await processFileList(e.dataTransfer.files);
     }
   };
 
-  const handleLoad = () => {
-    if (!title && !audioFile && !lrcContent) return;
+  const handleFileInputChange = async (e) => {
+    if (e.target.files) {
+      await processFileList(e.target.files);
+    }
+  };
 
-    const newTrack = {
-      id: `custom-${Date.now()}`,
-      title: title || 'Custom Terminal Track',
-      artist: artist || 'Local Broadcast',
-      cover: '/album_covers/loving_machine.jpg',
-      audioUrl: audioFile ? URL.createObjectURL(audioFile) : null,
-      lrc: lrcContent || `[00:00.00]${title || 'Custom Track'} (No LRC parsed)`,
-      duration: 200,
-      station: 'LOCAL // BROADCAST',
-      genre: 'CUSTOM // AUDIO',
-    };
-
-    addCustomTrack(newTrack);
+  const handleCommit = () => {
+    if (stagedFiles.length === 0) return;
+    addBatchTracks(stagedFiles);
+    setStagedFiles([]);
     setUploadOpen(false);
+  };
 
-    // Reset fields
-    setAudioFile(null);
-    setLrcFile(null);
-    setLrcContent('');
-    setTitle('');
-    setArtist('');
+  const handleRemoveStaged = (index) => {
+    setStagedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg border border-cyber-cyan bg-cyber-bgCard p-5 shadow-cyan relative font-mono text-xs">
+      <div className="w-full max-w-xl border border-cyber-cyan bg-cyber-bgCard p-5 shadow-cyan relative font-mono text-xs">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-cyber-cyan/50 pb-3 mb-4">
           <div className="flex items-center space-x-2 text-cyber-cyan text-glow-cyan font-bold text-sm">
             <Upload size={16} />
-            <span>&gt; IMPORT AUDIO / LRC TELEMETRY</span>
+            <span>&gt; BATCH MEDIA & LRC TELEMETRY IMPORT</span>
           </div>
           <button
             onClick={() => setUploadOpen(false)}
@@ -80,89 +101,94 @@ export const UploadModal = () => {
         </div>
 
         <div className="space-y-4">
-          {/* Metadata Inputs */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[10px] text-cyber-textDim uppercase mb-1">
-                Track Title
-              </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Cyber Memory"
-                className="w-full bg-cyber-bgDark border border-cyber-borderDim px-2.5 py-1.5 text-white focus:border-cyber-cyan outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-cyber-textDim uppercase mb-1">
-                Artist Name
-              </label>
-              <input
-                type="text"
-                value={artist}
-                onChange={(e) => setArtist(e.target.value)}
-                placeholder="e.g. Neon Ghost"
-                className="w-full bg-cyber-bgDark border border-cyber-borderDim px-2.5 py-1.5 text-white focus:border-cyber-cyan outline-none"
-              />
-            </div>
-          </div>
+          {/* Drag & Drop Target Area */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed p-6 text-center transition-all ${
+              isDragging
+                ? 'border-cyber-cyan bg-cyber-cyan/15 scale-[1.01]'
+                : 'border-cyber-borderDim bg-cyber-bgDark/70 hover:border-cyber-cyan/60'
+            }`}
+          >
+            <div className="flex flex-col items-center justify-center space-y-2">
+              <Upload size={28} className={isDragging ? 'text-cyber-cyan animate-bounce' : 'text-cyber-textDim'} />
+              <p className="text-white font-bold text-sm">
+                DROP AUDIO (.mp3, .wav, .flac) &amp; .LRC FILES HERE
+              </p>
+              <p className="text-[11px] text-cyber-textDim">
+                Matching filenames (e.g. Song.mp3 + Song.lrc) will automatically synchronize
+              </p>
 
-          {/* Audio File Picker */}
-          <div>
-            <label className="block text-[10px] text-cyber-textDim uppercase mb-1">
-              Audio File (.mp3 / .wav / .ogg / .flac)
-            </label>
-            <label className="flex items-center justify-center space-x-2 border border-dashed border-cyber-borderDim hover:border-cyber-cyan p-4 bg-cyber-bgDark/60 cursor-pointer transition-colors">
-              <FileAudio size={18} className={audioFile ? 'text-cyber-cyan' : 'text-cyber-textDim'} />
-              <span className="text-cyber-textBright">
-                {audioFile ? audioFile.name : 'Select audio track or leave empty for synth engine'}
-              </span>
-              <input
-                type="file"
-                accept="audio/*"
-                onChange={handleAudioChange}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {/* LRC File Picker or Text Paste */}
-          <div>
-            <label className="block text-[10px] text-cyber-textDim uppercase mb-1">
-              Synchronized LRC File (.lrc) or Paste Raw LRC Text
-            </label>
-            <div className="space-y-2">
-              <label className="flex items-center justify-center space-x-2 border border-dashed border-cyber-borderDim hover:border-cyber-cyan p-2.5 bg-cyber-bgDark/60 cursor-pointer transition-colors">
-                <FileText size={16} className={lrcFile ? 'text-cyber-cyan' : 'text-cyber-textDim'} />
-                <span className="text-cyber-textBright text-[11px]">
-                  {lrcFile ? lrcFile.name : 'Choose .LRC file'}
-                </span>
+              <label className="mt-2 inline-block px-3 py-1.5 bg-cyber-bgCardLight border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black cursor-pointer transition-colors font-bold text-xs">
+                BROWSE FILES
                 <input
                   type="file"
-                  accept=".lrc,.txt"
-                  onChange={handleLrcChange}
+                  multiple
+                  accept="audio/*,.lrc,.txt"
+                  onChange={handleFileInputChange}
                   className="hidden"
                 />
               </label>
-
-              <textarea
-                value={lrcContent}
-                onChange={(e) => setLrcContent(e.target.value)}
-                placeholder="[00:05.00] Synchronized lyric line 1&#10;[00:10.50] Synchronized lyric line 2..."
-                rows={4}
-                className="w-full bg-cyber-bgDark border border-cyber-borderDim p-2 text-[11px] text-white focus:border-cyber-cyan outline-none font-mono resize-none"
-              />
             </div>
           </div>
 
-          {/* Submit Action */}
+          {/* Staged Tracks Queue */}
+          {stagedFiles.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-[11px] text-cyber-textDim">
+                <span>STAGED FILES ({stagedFiles.length})</span>
+                <span className="text-cyber-cyan">READY FOR PLAYBACK PIPELINE</span>
+              </div>
+
+              <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1">
+                {stagedFiles.map((track, idx) => (
+                  <div
+                    key={track.id || idx}
+                    className="p-2 border border-cyber-borderDim bg-cyber-bgDark flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-2 truncate">
+                      <Music size={14} className="text-cyber-neon shrink-0" />
+                      <span className="text-white font-bold truncate">{track.title}</span>
+                      <span className="text-[10px] text-cyber-pinkDim truncate">({track.artist})</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2 shrink-0">
+                      {track.hasLrc ? (
+                        <span className="text-[9px] bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan px-1">
+                          LRC SYNCED
+                        </span>
+                      ) : (
+                        <span className="text-[9px] text-cyber-textDim border border-cyber-borderDim px-1">
+                          NO LRC
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleRemoveStaged(idx)}
+                        className="text-cyber-textDim hover:text-cyber-neon"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Commit Button */}
           <button
-            onClick={handleLoad}
-            className="w-full py-2 bg-cyber-bgCardLight border border-cyber-cyan hover:bg-cyber-cyan/20 text-cyber-cyan hover:text-white transition-all font-bold tracking-widest text-xs shadow-cyan flex items-center justify-center space-x-2"
+            onClick={handleCommit}
+            disabled={stagedFiles.length === 0}
+            className={`w-full py-2.5 border transition-all font-bold tracking-widest text-xs flex items-center justify-center space-x-2 ${
+              stagedFiles.length > 0
+                ? 'bg-cyber-bgCardLight border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan/20 hover:text-white shadow-cyan cursor-pointer'
+                : 'bg-cyber-bgDark border-cyber-borderDim text-cyber-textDim/40 cursor-not-allowed'
+            }`}
           >
             <CheckCircle2 size={16} />
-            <span>TRANSMIT TO TERMINAL</span>
+            <span>TRANSMIT {stagedFiles.length} TRACKS TO QUEUE</span>
           </button>
         </div>
       </div>

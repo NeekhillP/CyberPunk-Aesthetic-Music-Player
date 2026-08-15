@@ -5,6 +5,7 @@ export const DEFAULT_TRACKS = [
     artist: 'TV Girl',
     album: 'Who Really Cares',
     cover: '/album_covers/loving_machine.jpg',
+    audioUrl: '/audio/loving_machine.wav',
     duration: 227, // 03:47
     genre: 'Indie Pop / Synthwave',
     bpm: 104,
@@ -47,6 +48,7 @@ export const DEFAULT_TRACKS = [
     artist: 'CYBER_UNIT // 07',
     album: 'Transmission Failed',
     cover: '/album_covers/loving_machine.jpg',
+    audioUrl: '/audio/neon_solitude.wav',
     duration: 198, // 03:18
     genre: 'Cyberpunk Synthwave',
     bpm: 120,
@@ -70,30 +72,5 @@ export const DEFAULT_TRACKS = [
 [01:54.00]Transmission failed, yet we remain
 [02:00.00]Wired to the rhythm of electric pain
 [02:06.00]End of line. Disconnect now.`
-  },
-  {
-    id: 'track-midnight-cruise',
-    title: 'Midnight Grid Run',
-    artist: 'Vector 84',
-    album: 'Retrograde Dreams',
-    cover: '/album_covers/loving_machine.jpg',
-    duration: 215, // 03:35
-    genre: 'Darksynth / Outrun',
-    bpm: 116,
-    key: 'Am',
-    station: '104.2 FM TERMINAL',
-    lrc: `[00:00.00]◆ GRID RUN 84 ONLINE ◆
-[00:08.00]Engine humming at four thousand rpm
-[00:16.00]Vector lines stretch across the dark horizon
-[00:24.00]Speeding past the data terminals
-[00:32.00]Cyan streaks in the rearview mirror
-[00:40.00]Overdrive activated
-[00:48.00]Pushing the limiter to the red line
-[00:56.00]No turning back before sunrise
-[01:04.00]We own the electric grid tonight
-[01:20.00]♪ (Synthesizer Peak - Filter Sweeps) ♪
-[01:45.00]Destination: Unknown sector
-[01:55.00]Connection established with the mainframe
-[02:05.00]Speeding towards infinity.`
   }
 ];

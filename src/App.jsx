@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePlayerStore } from './store/playerStore';
 import { audioEngine } from './audio/audioEngine';
 import { TopBar } from './components/TopBar';
@@ -11,11 +11,12 @@ import { BottomBar } from './components/BottomBar';
 import { PlaylistModal } from './components/PlaylistModal';
 import { UploadModal } from './components/UploadModal';
 import { SettingsModal } from './components/SettingsModal';
+import { Upload } from 'lucide-react';
 
 export const App = () => {
   const {
     isPlaying,
-    setCurrentTime,
+    initAudioEngine,
     togglePlay,
     seek,
     currentTime,
@@ -26,27 +27,19 @@ export const App = () => {
     toggleAutoScroll,
     nextTrack,
     prevTrack,
+    addBatchTracks,
   } = usePlayerStore();
 
-  // High-frequency playback sync loop
-  useEffect(() => {
-    let animId;
-    const updateLoop = () => {
-      if (isPlaying) {
-        const time = audioEngine.getCurrentTime();
-        setCurrentTime(time);
-      }
-      animId = requestAnimationFrame(updateLoop);
-    };
+  const [isWindowDragging, setIsWindowDragging] = useState(false);
 
-    animId = requestAnimationFrame(updateLoop);
-    return () => cancelAnimationFrame(animId);
-  }, [isPlaying, setCurrentTime]);
+  // Initialize Web Audio Engine lifecycle
+  useEffect(() => {
+    initAudioEngine();
+  }, [initAudioEngine]);
 
   // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't trigger if typing in an input / textarea
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
       switch (e.code) {
@@ -91,11 +84,90 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, seek, currentTime, duration, volume, setVolume, toggleMute, toggleAutoScroll, nextTrack, prevTrack]);
 
+  // Global Window Drag and Drop
+  const handleWindowDragOver = (e) => {
+    e.preventDefault();
+    setIsWindowDragging(true);
+  };
+
+  const handleWindowDragLeave = (e) => {
+    if (e.clientX === 0 || e.clientY === 0) {
+      setIsWindowDragging(false);
+    }
+  };
+
+  const handleWindowDrop = async (e) => {
+    e.preventDefault();
+    setIsWindowDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const fileArray = Array.from(e.dataTransfer.files);
+      const audioFiles = fileArray.filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(f.name));
+      const lrcFiles = fileArray.filter(f => /\.(lrc|txt)$/i.test(f.name));
+
+      const lrcMap = new Map();
+      for (const lrc of lrcFiles) {
+        const text = await lrc.text();
+        const baseName = lrc.name.replace(/\.[^/.]+$/, '').toLowerCase();
+        lrcMap.set(baseName, text);
+      }
+
+      const newTracks = [];
+      for (const audio of audioFiles) {
+        const baseName = audio.name.replace(/\.[^/.]+$/, '');
+        const cleanBase = baseName.toLowerCase();
+        const matchedLrc = lrcMap.get(cleanBase) || (lrcFiles.length === 1 ? await lrcFiles[0].text() : '');
+
+        let artist = 'Local Audio';
+        let title = baseName;
+        if (baseName.includes(' - ')) {
+          const parts = baseName.split(' - ');
+          artist = parts[0].trim();
+          title = parts.slice(1).join(' - ').trim();
+        }
+
+        newTracks.push({
+          id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          title,
+          artist,
+          cover: '/album_covers/loving_machine.jpg',
+          audioUrl: URL.createObjectURL(audio),
+          lrc: matchedLrc || `[00:00.00]${title} - ${artist}\n[00:04.00]♪ Direct terminal playback ♪`,
+          duration: 180,
+          station: 'LOCAL // MEDIA',
+          genre: 'DIRECT // STREAM',
+        });
+      }
+
+      if (newTracks.length > 0) {
+        addBatchTracks(newTracks);
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#0c0205] text-[#ff2a6d] font-mono select-none overflow-hidden relative">
+    <div
+      onDragOver={handleWindowDragOver}
+      onDragLeave={handleWindowDragLeave}
+      onDrop={handleWindowDrop}
+      className="flex flex-col h-screen w-screen bg-[#0c0205] text-[#ff2a6d] font-mono select-none overflow-hidden relative"
+    >
       {/* CRT Scanline and Screen Filters */}
       <div className="crt-overlay" />
       <div className="crt-vignette" />
+
+      {/* Drag & Drop Visual HUD Overlay */}
+      {isWindowDragging && (
+        <div className="fixed inset-0 z-50 bg-[#0c0205]/90 border-4 border-cyber-cyan border-dashed flex flex-col items-center justify-center p-8 backdrop-blur-sm pointer-events-none">
+          <Upload size={48} className="text-cyber-cyan animate-bounce mb-4" />
+          <h2 className="text-2xl font-bold text-white text-glow-cyan tracking-widest">
+            &gt; DETECTED AUDIO / LRC TELEMETRY
+          </h2>
+          <p className="text-sm text-cyber-cyan mt-2">
+            RELEASE TO IMPORT DIRECTLY INTO AUDIO ENGINE PIPELINE
+          </p>
+        </div>
+      )}
 
       {/* Top Navigation / Brand Header */}
       <TopBar />
