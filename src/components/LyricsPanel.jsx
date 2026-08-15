@@ -9,8 +9,11 @@ export const LyricsPanel = () => {
     seek,
     autoScroll,
     syncStatus,
+    playlist,
+    currentTrackIndex,
   } = usePlayerStore();
 
+  const currentTrack = playlist[currentTrackIndex] || {};
   const containerRef = useRef(null);
   const activeLineRef = useRef(null);
 
@@ -36,7 +39,12 @@ export const LyricsPanel = () => {
       <div className="h-8 border-b border-cyber-border/70 bg-cyber-bgDark/90 px-3 flex items-center justify-between select-none">
         <div className="flex items-center space-x-2 text-xs font-mono">
           <span className="text-cyber-neon text-glow font-bold">&gt; lyrics</span>
-          <span className="text-[10px] text-cyber-textDim">
+          {currentTrack.lyricSource && (
+            <span className="text-[10px] text-cyber-cyan border border-cyber-cyanDim px-1.5 py-0.2">
+              {currentTrack.lyricSource}
+            </span>
+          )}
+          <span className="text-[10px] text-cyber-textDim hidden sm:inline">
             [{lines.length} lines parsed]
           </span>
         </div>
@@ -55,7 +63,7 @@ export const LyricsPanel = () => {
         {lines.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-cyber-textDim text-sm space-y-2">
             <p>&gt; NO SYNCHRONIZED LRC DATA DETECTED</p>
-            <p className="text-xs text-cyber-pinkMuted">Upload an .lrc file via the LOAD button</p>
+            <p className="text-xs text-cyber-pinkMuted">Upload an audio or .lrc file via the LOAD button</p>
           </div>
         ) : (
           lines.map((line, idx) => {
@@ -76,7 +84,7 @@ export const LyricsPanel = () => {
                 }`}
               >
                 <div className="flex items-baseline space-x-3">
-                  {/* Subtle Line Timestamp on Hover */}
+                  {/* Line Timestamp on Hover */}
                   <span className="text-[10px] text-cyber-pinkMuted font-mono group-hover:text-cyber-cyan transition-colors hidden sm:inline-block w-12 shrink-0">
                     {formatTimestamp(line.time)}
                   </span>

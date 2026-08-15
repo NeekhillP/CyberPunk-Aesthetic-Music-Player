@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { usePlayerStore } from './store/playerStore';
-import { audioEngine } from './audio/audioEngine';
+import { extractAudioMetadata } from './utils/metadataExtractor';
+import { resolveTrackLyrics } from './utils/lyricsService';
 import { TopBar } from './components/TopBar';
 import { AlbumArt } from './components/AlbumArt';
 import { MetadataCard } from './components/MetadataCard';
@@ -11,7 +12,7 @@ import { BottomBar } from './components/BottomBar';
 import { PlaylistModal } from './components/PlaylistModal';
 import { UploadModal } from './components/UploadModal';
 import { SettingsModal } from './components/SettingsModal';
-import { Upload } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
 
 export const App = () => {
   const {
@@ -31,6 +32,8 @@ export const App = () => {
   } = usePlayerStore();
 
   const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const [isGlobalProcessing, setIsGlobalProcessing] = useState(false);
+  const [globalScanStatus, setGlobalScanStatus] = useState('');
 
   // Initialize Web Audio Engine lifecycle
   useEffect(() => {
@@ -84,7 +87,7 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, seek, currentTime, duration, volume, setVolume, toggleMute, toggleAutoScroll, nextTrack, prevTrack]);
 
-  // Global Window Drag and Drop
+  // Global Window Drag and Drop with ID3 & LRCLIB Pipeline
   const handleWindowDragOver = (e) => {
     e.preventDefault();
     setIsWindowDragging(true);
@@ -105,6 +108,10 @@ export const App = () => {
       const audioFiles = fileArray.filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac)$/i.test(f.name));
       const lrcFiles = fileArray.filter(f => /\.(lrc|txt)$/i.test(f.name));
 
+      if (audioFiles.length === 0) return;
+
+      setIsGlobalProcessing(true);
+
       const lrcMap = new Map();
       for (const lrc of lrcFiles) {
         const text = await lrc.text();
@@ -113,35 +120,47 @@ export const App = () => {
       }
 
       const newTracks = [];
-      for (const audio of audioFiles) {
-        const baseName = audio.name.replace(/\.[^/.]+$/, '');
-        const cleanBase = baseName.toLowerCase();
-        const matchedLrc = lrcMap.get(cleanBase) || (lrcFiles.length === 1 ? await lrcFiles[0].text() : '');
+      for (let i = 0; i < audioFiles.length; i++) {
+        const audio = audioFiles[i];
+        setGlobalScanStatus(`[SCANNING ID3/TELEMETRY ${i + 1}/${audioFiles.length}: ${audio.name}]`);
 
-        let artist = 'Local Audio';
-        let title = baseName;
-        if (baseName.includes(' - ')) {
-          const parts = baseName.split(' - ');
-          artist = parts[0].trim();
-          title = parts.slice(1).join(' - ').trim();
-        }
+        const meta = await extractAudioMetadata(audio);
+        const baseName = audio.name.replace(/\.[^/.]+$/, '').toLowerCase();
+        const companionLrc = lrcMap.get(baseName) || (lrcFiles.length === 1 ? await lrcFiles[0].text() : '');
+
+        setGlobalScanStatus(`[RESOLVING LYRICS: ${meta.title}...]`);
+        const lyricResult = await resolveTrackLyrics({
+          title: meta.title,
+          artist: meta.artist,
+          album: meta.album,
+          duration: meta.duration,
+          embeddedLyrics: meta.embeddedLyrics,
+          companionLrc,
+        });
 
         newTracks.push({
           id: `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-          title,
-          artist,
-          cover: '/album_covers/loving_machine.jpg',
+          title: meta.title || audio.name,
+          artist: meta.artist || 'Local Audio',
+          album: meta.album || 'Local Broadcast',
+          cover: meta.artworkUrl || '/album_covers/loving_machine.jpg',
+          hasCustomArt: Boolean(meta.artworkUrl),
           audioUrl: URL.createObjectURL(audio),
-          lrc: matchedLrc || `[00:00.00]${title} - ${artist}\n[00:04.00]♪ Direct terminal playback ♪`,
-          duration: 180,
-          station: 'LOCAL // MEDIA',
-          genre: 'DIRECT // STREAM',
+          lrc: lyricResult.lrc,
+          lyricSource: lyricResult.source,
+          isSynced: lyricResult.isSynced,
+          duration: meta.duration || 180,
+          station: 'LOCAL // TELEMETRY',
+          genre: meta.album ? `${meta.album.substring(0, 14).toUpperCase()}` : 'LOCAL MEDIA',
         });
       }
 
       if (newTracks.length > 0) {
         addBatchTracks(newTracks);
       }
+
+      setIsGlobalProcessing(false);
+      setGlobalScanStatus('');
     }
   };
 
@@ -158,13 +177,26 @@ export const App = () => {
 
       {/* Drag & Drop Visual HUD Overlay */}
       {isWindowDragging && (
-        <div className="fixed inset-0 z-50 bg-[#0c0205]/90 border-4 border-cyber-cyan border-dashed flex flex-col items-center justify-center p-8 backdrop-blur-sm pointer-events-none">
+        <div className="fixed inset-0 z-50 bg-[#0c0205]/92 border-4 border-cyber-cyan border-dashed flex flex-col items-center justify-center p-8 backdrop-blur-sm pointer-events-none">
           <Upload size={48} className="text-cyber-cyan animate-bounce mb-4" />
           <h2 className="text-2xl font-bold text-white text-glow-cyan tracking-widest">
             &gt; DETECTED AUDIO / LRC TELEMETRY
           </h2>
           <p className="text-sm text-cyber-cyan mt-2">
-            RELEASE TO IMPORT DIRECTLY INTO AUDIO ENGINE PIPELINE
+            RELEASE TO EXTRACT ID3 METADATA, EMBEDDED ART &amp; AUTO-SYNC LRCLIB LYRICS
+          </p>
+        </div>
+      )}
+
+      {/* Global Ingestion Loader HUD */}
+      {isGlobalProcessing && (
+        <div className="fixed inset-0 z-50 bg-[#0c0205]/90 border-2 border-cyber-cyan flex flex-col items-center justify-center p-8 backdrop-blur-sm">
+          <Loader2 size={44} className="text-cyber-cyan animate-spin mb-4" />
+          <h3 className="text-lg font-bold text-white tracking-widest">
+            {globalScanStatus || '[SCANNING ID3/TELEMETRY...]'}
+          </h3>
+          <p className="text-xs text-cyber-cyan mt-2">
+            Extracting embedded artwork and querying satellite lyric databases...
           </p>
         </div>
       )}
