@@ -4,22 +4,16 @@
 ---
 
 ## 1. Current State
-- **Status:** Phase 2.7 Complete (Regional/Multilingual Metadata Sanitization, Multi-Provider Artwork/Lyrics Lookups, In-App Terminal Lyric Paste).
-- **Version:** v0.2.7
+- **Status:** Phase 2.8 Complete (Strict Lyric Verification, False-Positive Elimination & Locked Playback Sync).
+- **Version:** v0.2.8
 - **Repository:** `https://github.com/NeekhillP/CyberPunk-Aesthetic-Music-Player.git`
 - **Operational Features:**
-  - ✅ **Smart Multilingual Query Sanitizer (`sanitizeQuery.js`):** Splits bilingual / mixed-script strings (e.g. `Kasari कसरी`), strips clutter (`(Official Video)`, `(Prod. by...)`, `Lyrical Video`), and produces prioritized Latin and Native search candidate arrays.
-  - ✅ **Multi-Provider Artwork Pipeline:**
-    - *Tier 1:* Embedded ID3 APIC frames.
-    - *Tier 2:* iTunes Search API HD (`600x600bb`) across Latin & Native candidates.
-    - *Tier 3:* Deezer Search API high-res album fallback.
-    - *Tier 4:* Solo artist/title fuzzy search fallback.
-  - ✅ **Multi-Tier Multilingual Lyrics Engine:**
-    - *Tier 1:* Embedded ID3 (`SYLT`/`USLT`).
-    - *Tier 2:* Local Companion `.lrc`.
-    - *Tier 3:* LRCLIB multi-candidate search (Latin + Devanagari/Native scripts).
-    - *Tier 4:* In-App Terminal Quick Lyric Paste interface (`[ + PASTE LRC / TEXT LYRICS ]`) with live track binding.
-  - ✅ **Devanagari & Unicode Terminal Typography:** Integrated `Noto Sans Devanagari` and UTF-8 typography with neon glow support.
+  - ✅ **Strict Lyric Title & Artist Verification:** Eliminated loose fallback indexing by implementing strict string similarity, Levenshtein distance, and duration tolerance validation ($\pm 8$s) before accepting any online lyric match.
+  - ✅ **Precision Playback-Lyric Sync Lock:** Direct event-driven and RAF-driven audio element timestamp locking with binary search index lookups.
+  - ✅ **Smart Multilingual Query Sanitizer (`sanitizeQuery.js`):** Script-splitting for Latin & Devanagari regional titles and clutter removal.
+  - ✅ **Multi-Provider Artwork Pipeline:** Embedded ID3 APIC, iTunes 600x600 HD, Deezer fallback.
+  - ✅ **Interactive In-App Lyric Injection:** Paste timestamped `.lrc` or plain lyrics directly into the active track.
+  - ✅ **Devanagari & Unicode Terminal Typography:** Google Font `Noto Sans Devanagari` support with glowing CRT aesthetic.
   - ✅ **Real Web Audio API Engine:** `HTMLAudioElement` connected to `AnalyserNode` and `GainNode`.
   - ✅ **Spectrum Visualizer Reactivity:** 24-band dual-zone LED `<canvas>` visualizer.
   - ✅ **Batch Drag-and-Drop Importer:** Full-window drag & drop HUD.
@@ -29,13 +23,18 @@
 
 ## 2. Changelog
 
+### [v0.2.8] - 2026-08-15
+- Re-architected `src/utils/lyricsService.js` to enforce strict title verification:
+  - Exact match GET verification with duration tolerance.
+  - Rejection of loose search results where `trackName` does not match the target song (prevented wrong song lyrics like "Jhari" for "Kasari").
+  - Added token overlap and normalized Levenshtein similarity metric ($\ge 0.75$ threshold).
+- Hardened playback time sync in `src/audio/audioEngine.js` and `src/utils/lrcParser.js` to ensure zero drift between audio timeline and active lyric highlighting.
+- Tested and verified production build with Vite.
+
 ### [v0.2.7] - 2026-08-15
 - Built `src/utils/sanitizeQuery.js` with regex script-splitting (Latin/Romanized vs Devanagari/Native scripts) and clutter stripping.
-- Upgraded `artworkService.js` with multi-provider fallbacks (iTunes + Deezer + Title-only fuzzy matching).
-- Upgraded `lyricsService.js` to perform multi-stage LRCLIB queries across all generated candidate terms.
-- Built interactive In-App Terminal Lyric Editor (`[ + PASTE LRC / TEXT LYRICS ]`) in `LyricsPanel.jsx` allowing instant manual lyrics binding.
-- Updated `index.html` and `tailwind.config.js` with Google Font `Noto Sans Devanagari` for crisp regional character rendering.
-- Tested and verified production build with Vite.
+- Upgraded `artworkService.js` with multi-provider fallbacks (iTunes + Deezer).
+- Built interactive In-App Terminal Lyric Editor (`[ + PASTE LRC / TEXT LYRICS ]`).
 
 ### [v0.2.6] - 2026-08-15
 - Built multi-tier cover art pipeline with iTunes 600x600 HD fallback.
@@ -56,7 +55,8 @@
 - [x] **Phase 2:** Real Web Audio HTML5 playback pipeline, offline audio tracks, multi-file batch drag & drop importer with auto-pair LRC.
 - [x] **Phase 2.5:** ID3 tag extraction, embedded cover art rendering, and LRCLIB online lyric auto-fetch.
 - [x] **Phase 2.6:** Robust artwork pipeline with iTunes Search API online fallback & dynamic component bindings.
-- [x] **Phase 2.7 (Current):** Multilingual/Devanagari query sanitizer, multi-provider artwork/lyrics fallbacks, and in-app lyric paste terminal.
+- [x] **Phase 2.7:** Multilingual/Devanagari query sanitizer, multi-provider artwork/lyrics fallbacks, and in-app lyric paste terminal.
+- [x] **Phase 2.8 (Current):** Strict lyric validation & verification to eliminate song mismatches, locked time sync.
 - [ ] **Phase 3:** Advanced audio DSP effects (CRT vinyl crackle filter, reverb, lowpass radio filter switch, 5-band terminal equalizer presets).
 - [ ] **Phase 4:** Waveform visualizer modes (Spectrum LED blocks vs Oscilloscope Waveform vs Peak VU Meter).
 - [ ] **Phase 5:** Desktop packaging (Electron / Tauri wrapper scripts).
