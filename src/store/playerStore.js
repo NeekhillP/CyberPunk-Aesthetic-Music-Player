@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_TRACKS } from '../data/defaultTracks';
 import { parseLRC, getActiveLyricIndex } from '../utils/lrcParser';
-import { audioEngine } from '../audio/audioEngine';
+import { audioEngine, EQ_PRESETS } from '../audio/audioEngine';
 import { resolveTrackArtwork } from '../utils/artworkService';
 import { resolveTrackLyrics } from '../utils/lyricsService';
+import { saveBatchTracksToVault, getAllVaultTracks, clearVault, deleteTrackFromVault } from '../services/dbService';
 
 export const usePlayerStore = create(
   persist(
@@ -20,6 +21,12 @@ export const usePlayerStore = create(
       playbackRate: 1.0,
       visualizerMode: 'BARS', // 'BARS' | 'WAVE' | 'RADAR'
       
+      // DSP & EQ State
+      isDspOpen: false,
+      isDspEnabled: true,
+      eqPreset: 'FLAT',
+      eqGains: [0, 0, 0, 0, 0],
+
       // Active parsed lyrics
       parsedLyrics: parseLRC(DEFAULT_TRACKS[0].lrc),
       activeLyricIndex: 0,
@@ -33,8 +40,8 @@ export const usePlayerStore = create(
       stationName: '◆ S E V E N . F M ◆',
       syncStatus: 'online • sync ✔',
 
-      // Initialize audio callbacks
-      initAudioEngine: () => {
+      // Initialize audio & IndexedDB vault on launch
+      initAudioEngine: async () => {
         audioEngine.onEndedCallback = () => {
           get().nextTrack();
         };
@@ -51,10 +58,42 @@ export const usePlayerStore = create(
           }
         };
 
-        const { volume, isMuted, playbackRate } = get();
+        const { volume, isMuted, playbackRate, isDspEnabled, eqPreset, eqGains } = get();
         audioEngine.setVolume(volume);
         audioEngine.setMute(isMuted);
         audioEngine.setPlaybackRate(playbackRate || 1.0);
+        audioEngine.isDspEnabled = isDspEnabled;
+        audioEngine.eqGains = eqGains || [0, 0, 0, 0, 0];
+        audioEngine.setEqPreset(eqPreset || 'FLAT');
+
+        // Hydrate from IndexedDB Media Vault
+        await get().loadVaultTracks();
+      },
+
+      loadVaultTracks: async () => {
+        try {
+          const vaultTracks = await getAllVaultTracks();
+          if (vaultTracks && vaultTracks.length > 0) {
+            set((state) => {
+              // Combine default tracks with persisted vault tracks
+              const merged = [...DEFAULT_TRACKS, ...vaultTracks];
+              // De-duplicate by ID
+              const unique = Array.from(new Map(merged.map(t => [t.id, t])).values());
+              return { playlist: unique };
+            });
+          }
+        } catch (e) {
+          console.warn('Vault hydration error:', e);
+        }
+      },
+
+      clearVaultTracks: async () => {
+        await clearVault();
+        set({
+          playlist: DEFAULT_TRACKS,
+          currentTrackIndex: 0,
+        });
+        get().playTrack(0);
       },
 
       // Actions
@@ -141,6 +180,34 @@ export const usePlayerStore = create(
         set({ visualizerMode: mode });
       },
 
+      // DSP Actions
+      setDspOpen: (open) => set({ isDspOpen: open }),
+      
+      toggleDsp: () => {
+        const { isDspEnabled } = get();
+        const updated = !isDspEnabled;
+        audioEngine.toggleDsp(updated);
+        set({ isDspEnabled: updated });
+      },
+
+      setEqPreset: (presetName) => {
+        audioEngine.setEqPreset(presetName);
+        set({
+          eqPreset: presetName,
+          eqGains: [...(EQ_PRESETS[presetName] || [0, 0, 0, 0, 0])],
+        });
+      },
+
+      setEqBandGain: (bandIdx, gainDb) => {
+        audioEngine.setEqBandGain(bandIdx, gainDb);
+        const newGains = [...get().eqGains];
+        newGains[bandIdx] = gainDb;
+        set({
+          eqGains: newGains,
+          eqPreset: 'CUSTOM',
+        });
+      },
+
       toggleAutoScroll: () => {
         set((state) => ({ autoScroll: !state.autoScroll }));
       },
@@ -155,7 +222,6 @@ export const usePlayerStore = create(
         set({ duration });
       },
 
-      // 1-Click Title <-> Artist Swap with automatic artwork & lyrics re-fetch
       swapTrackMetadata: async (index) => {
         const { playlist, currentTrackIndex, currentTime } = get();
         const targetIndex = index !== undefined ? index : currentTrackIndex;
@@ -165,12 +231,10 @@ export const usePlayerStore = create(
         const newTitle = track.artist || 'Unknown Track';
         const newArtist = track.title || 'Unknown Artist';
 
-        // Re-resolve artwork & lyrics with swapped tags
         const artworkResult = await resolveTrackArtwork({
           title: newTitle,
           artist: newArtist,
           album: track.album,
-          embeddedArtworkUrl: null, // Allow online lookup with new tags
         });
 
         const lyricResult = await resolveTrackLyrics({
@@ -203,7 +267,6 @@ export const usePlayerStore = create(
         });
       },
 
-      // Manual Edit Title & Artist with automatic artwork & lyrics re-fetch
       editTrackMetadata: async (index, newTitle, newArtist) => {
         const { playlist, currentTrackIndex, currentTime } = get();
         const targetIndex = index !== undefined ? index : currentTrackIndex;
@@ -267,8 +330,12 @@ export const usePlayerStore = create(
         });
       },
 
-      addBatchTracks: (newTracks) => {
+      addBatchTracks: async (newTracks) => {
         if (!newTracks || newTracks.length === 0) return;
+        
+        // Save to IndexedDB Media Vault
+        await saveBatchTracksToVault(newTracks);
+
         set((state) => {
           const updated = [...state.playlist, ...newTracks];
           return { playlist: updated };
@@ -277,10 +344,15 @@ export const usePlayerStore = create(
         playTrack(playlist.length - newTracks.length);
       },
 
-      removeTrack: (index) => {
+      removeTrack: async (index) => {
         const { playlist, currentTrackIndex, playTrack } = get();
         if (playlist.length <= 1) return;
         
+        const trackToRemove = playlist[index];
+        if (trackToRemove && trackToRemove.id) {
+          await deleteTrackFromVault(trackToRemove.id);
+        }
+
         const updated = playlist.filter((_, i) => i !== index);
         let newIndex = currentTrackIndex;
         if (index === currentTrackIndex) {
@@ -307,6 +379,9 @@ export const usePlayerStore = create(
         autoScroll: state.autoScroll,
         playbackRate: state.playbackRate,
         visualizerMode: state.visualizerMode,
+        isDspEnabled: state.isDspEnabled,
+        eqPreset: state.eqPreset,
+        eqGains: state.eqGains,
         currentTrackIndex: state.currentTrackIndex,
       }),
     }

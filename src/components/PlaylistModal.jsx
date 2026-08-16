@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayerStore } from '../store/playerStore';
-import { X, Play, Music, Radio, Trash2, Plus } from 'lucide-react';
+import { X, Play, Music, Radio, Trash2, Plus, Database, RefreshCw } from 'lucide-react';
 import { formatTime } from '../utils/lrcParser';
 
 export const PlaylistModal = () => {
@@ -9,6 +9,7 @@ export const PlaylistModal = () => {
     currentTrackIndex,
     playTrack,
     removeTrack,
+    clearVaultTracks,
     isPlaylistOpen,
     setPlaylistOpen,
     setUploadOpen,
@@ -17,14 +18,22 @@ export const PlaylistModal = () => {
 
   if (!isPlaylistOpen) return null;
 
+  const hasVaultTracks = playlist.some(t => t.isVaultTrack || t.id.startsWith('custom-'));
+
+  const handleClearVault = async () => {
+    if (window.confirm('PURGE MEDIA VAULT: Remove all custom imported tracks from IndexedDB storage?')) {
+      await clearVaultTracks();
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg border border-cyber-neon bg-cyber-bgCard p-5 shadow-neon-strong relative font-mono text-xs">
+      <div className="w-full max-w-lg border border-cyber-neon bg-cyber-bgCard p-5 shadow-neon-strong relative font-mono text-xs select-none">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-cyber-border pb-3 mb-4">
           <div className="flex items-center space-x-2 text-cyber-neon text-glow font-bold text-sm">
             <Radio size={16} />
-            <span>&gt; STATION DIRECTORY // QUEUE ({playlist.length})</span>
+            <span>&gt; STATION QUEUE // VAULT ({playlist.length})</span>
           </div>
           <div className="flex items-center space-x-2">
             <button
@@ -70,10 +79,10 @@ export const PlaylistModal = () => {
                     {isCurrent && isPlaying ? '*' : (idx + 1).toString().padStart(2, '0')}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-bold text-white tracking-wide truncate">
+                    <div className="font-bold text-white tracking-wide truncate font-sans md:font-mono">
                       {track.title}
                     </div>
-                    <div className="text-[10px] text-cyber-pinkDim truncate">
+                    <div className="text-[10px] text-cyber-pinkDim truncate font-sans md:font-mono">
                       {track.artist} • {track.station || 'SEVEN.FM'}
                     </div>
                   </div>
@@ -112,10 +121,23 @@ export const PlaylistModal = () => {
           })}
         </div>
 
-        {/* Footer */}
-        <div className="mt-4 pt-3 border-t border-cyber-borderDim/60 text-[10px] text-cyber-textDim flex justify-between">
-          <span>{playlist.length} TRACKS LOADED</span>
-          <span className="text-cyber-neon">AUTO-ADVANCE ENABLED</span>
+        {/* Footer with Clear Vault Button */}
+        <div className="mt-4 pt-3 border-t border-cyber-borderDim/60 text-[10px] text-cyber-textDim flex justify-between items-center">
+          <div className="flex items-center space-x-1.5">
+            <Database size={11} className="text-cyber-cyan" />
+            <span>INDEXEDDB PERSISTED</span>
+          </div>
+
+          {hasVaultTracks && (
+            <button
+              onClick={handleClearVault}
+              className="flex items-center space-x-1 text-cyber-pinkDim hover:text-cyber-neon transition-colors border border-cyber-borderDim/60 px-1.5 py-0.5"
+              title="Clear all stored media from IndexedDB"
+            >
+              <RefreshCw size={10} />
+              <span>[ CLEAR VAULT ]</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

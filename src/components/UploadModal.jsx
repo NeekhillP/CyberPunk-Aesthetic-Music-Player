@@ -73,12 +73,14 @@ export const UploadModal = () => {
         artworkSource: artworkResult.source,
         hasCustomArt: artworkResult.isCustom,
         audioUrl: URL.createObjectURL(audio),
+        audioBlob: audio,
         lrc: lyricResult.lrc,
         lyricSource: lyricResult.source,
         isSynced: lyricResult.isSynced,
         duration: meta.duration || 180,
-        station: 'LOCAL // TELEMETRY',
+        station: 'LOCAL // VAULT',
         genre: meta.album ? `${meta.album.substring(0, 14).toUpperCase()}` : 'LOCAL MEDIA',
+        isVaultTrack: true,
       });
     }
 
@@ -104,9 +106,9 @@ export const UploadModal = () => {
     }
   };
 
-  const handleCommit = () => {
+  const handleCommit = async () => {
     if (stagedFiles.length === 0) return;
-    addBatchTracks(stagedFiles);
+    await addBatchTracks(stagedFiles);
     setStagedFiles([]);
     setUploadOpen(false);
   };
@@ -117,12 +119,12 @@ export const UploadModal = () => {
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-xl border border-cyber-cyan bg-cyber-bgCard p-5 shadow-cyan relative font-mono text-xs">
+      <div className="w-full max-w-xl border border-cyber-cyan bg-cyber-bgCard p-5 shadow-cyan relative font-mono text-xs select-none">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-cyber-cyan/50 pb-3 mb-4">
           <div className="flex items-center space-x-2 text-cyber-cyan text-glow-cyan font-bold text-sm">
             <Upload size={16} />
-            <span>&gt; ID3 EXTRACTION &amp; TELEMETRY INGESTION</span>
+            <span>&gt; ID3 EXTRACTION &amp; VAULT INGESTION</span>
           </div>
           <button
             onClick={() => setUploadOpen(false)}
@@ -162,7 +164,7 @@ export const UploadModal = () => {
                   DROP AUDIO (.mp3, .wav, .flac, .m4a) &amp; .LRC FILES HERE
                 </p>
                 <p className="text-[11px] text-cyber-textDim">
-                  Auto ID3 + iTunes HD Cover Art Lookup • Multi-Tier LRCLIB Lyric Auto-Sync
+                  Auto ID3 + iTunes HD Cover Art Lookup • Permanent IndexedDB Media Vault
                 </p>
 
                 <label className="mt-2 inline-block px-3 py-1.5 bg-cyber-bgCardLight border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black cursor-pointer transition-colors font-bold text-xs">
@@ -184,7 +186,7 @@ export const UploadModal = () => {
             <div className="space-y-2">
               <div className="flex justify-between text-[11px] text-cyber-textDim">
                 <span>TELEMETRY READY ({stagedFiles.length})</span>
-                <span className="text-cyber-cyan">COVER ART &amp; LYRICS RESOLVED</span>
+                <span className="text-cyber-cyan">PERSISTING TO LOCAL VAULT</span>
               </div>
 
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
@@ -243,7 +245,7 @@ export const UploadModal = () => {
             }`}
           >
             <CheckCircle2 size={16} />
-            <span>TRANSMIT {stagedFiles.length} TRACKS TO PLAYER</span>
+            <span>SAVE {stagedFiles.length} TRACKS TO MEDIA VAULT &amp; PLAY</span>
           </button>
         </div>
       </div>

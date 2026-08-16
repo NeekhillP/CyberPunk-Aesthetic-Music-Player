@@ -13,6 +13,7 @@ import { BottomBar } from './components/BottomBar';
 import { PlaylistModal } from './components/PlaylistModal';
 import { UploadModal } from './components/UploadModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AudioRack } from './components/AudioRack';
 import { Upload, Loader2 } from 'lucide-react';
 
 export const App = () => {
@@ -36,7 +37,7 @@ export const App = () => {
   const [isGlobalProcessing, setIsGlobalProcessing] = useState(false);
   const [globalScanStatus, setGlobalScanStatus] = useState('');
 
-  // Initialize Web Audio Engine lifecycle
+  // Initialize Web Audio Engine & IndexedDB Vault
   useEffect(() => {
     initAudioEngine();
   }, [initAudioEngine]);
@@ -160,17 +161,19 @@ export const App = () => {
           artworkSource: artworkResult.source,
           hasCustomArt: artworkResult.isCustom,
           audioUrl: URL.createObjectURL(audio),
+          audioBlob: audio,
           lrc: lyricResult.lrc,
           lyricSource: lyricResult.source,
           isSynced: lyricResult.isSynced,
           duration: meta.duration || 180,
-          station: 'LOCAL // TELEMETRY',
+          station: 'LOCAL // VAULT',
           genre: meta.album ? `${meta.album.substring(0, 14).toUpperCase()}` : 'LOCAL MEDIA',
+          isVaultTrack: true,
         });
       }
 
       if (newTracks.length > 0) {
-        addBatchTracks(newTracks);
+        await addBatchTracks(newTracks);
       }
 
       setIsGlobalProcessing(false);
@@ -197,7 +200,7 @@ export const App = () => {
             &gt; DETECTED AUDIO / LRC TELEMETRY
           </h2>
           <p className="text-sm text-cyber-cyan mt-2">
-            RELEASE TO EXTRACT ID3 METADATA, FETCH ITUNES HD ARTWORK &amp; AUTO-SYNC LYRICS
+            RELEASE TO EXTRACT ID3 METADATA, PERSIST TO VAULT &amp; AUTO-SYNC LYRICS
           </p>
         </div>
       )}
@@ -210,7 +213,7 @@ export const App = () => {
             {globalScanStatus || '[SCANNING ID3/TELEMETRY...]'}
           </h3>
           <p className="text-xs text-cyber-cyan mt-2">
-            Resolving 600x600 HD artwork and querying satellite lyric databases...
+            Writing to IndexedDB Media Vault and querying satellite databases...
           </p>
         </div>
       )}
@@ -244,7 +247,8 @@ export const App = () => {
       {/* Full-width Bottom Seek Bar */}
       <BottomBar />
 
-      {/* Modals */}
+      {/* Modals & Slide-Out Drawers */}
+      <AudioRack />
       <PlaylistModal />
       <UploadModal />
       <SettingsModal />

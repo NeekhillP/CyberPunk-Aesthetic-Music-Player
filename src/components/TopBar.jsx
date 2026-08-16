@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayerStore } from '../store/playerStore';
-import { Settings, ListMusic, UploadCloud, Radio, Sparkles } from 'lucide-react';
+import { Settings, ListMusic, UploadCloud, Sliders, Radio } from 'lucide-react';
 
 export const TopBar = () => {
   const { 
@@ -9,31 +9,48 @@ export const TopBar = () => {
     isPlaying, 
     setPlaylistOpen, 
     setUploadOpen, 
-    setSettingsOpen 
+    setSettingsOpen,
+    setDspOpen,
+    isDspEnabled,
+    eqPreset,
   } = usePlayerStore();
 
   return (
-    <header className="h-10 border-b border-cyber-border/70 bg-cyber-bgDark/90 backdrop-blur flex items-center justify-between px-3 text-xs tracking-widest select-none z-30">
+    <header className="h-10 border-b border-cyber-border/70 bg-cyber-bgDark/90 backdrop-blur flex items-center justify-between px-3 text-xs tracking-widest select-none z-30 font-mono">
       {/* Brand Station Logo */}
       <div className="flex items-center space-x-3">
         <span className="text-cyber-neon text-glow font-bold text-sm tracking-[0.25em] flex items-center gap-1.5">
           <span className={`inline-block w-2 h-2 rounded-full ${isPlaying ? 'bg-cyber-neon shadow-[0_0_8px_#ff2a6d] animate-ping' : 'bg-cyber-pinkMuted'}`} />
           {stationName}
         </span>
-        <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-cyber-bgCard border border-cyber-borderDim text-cyber-cyan text-glow-cyan font-mono">
+        <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] bg-cyber-bgCard border border-cyber-borderDim text-cyber-cyan text-glow-cyan">
           FREQ: 98.40 MHz
         </span>
       </div>
 
       {/* Action Buttons & Status Indicators */}
-      <div className="flex items-center space-x-3">
+      <div className="flex items-center space-x-2 sm:space-x-3">
         {/* Sync Status Badge */}
-        <div className="flex items-center space-x-1.5 text-cyber-cyan text-glow-cyan font-mono text-[11px]">
+        <div className="hidden sm:flex items-center space-x-1.5 text-cyber-cyan text-glow-cyan text-[11px]">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-cyber-cyan shadow-[0_0_6px_#05d9e8]" />
           <span>{syncStatus}</span>
         </div>
 
-        <div className="h-3.5 w-px bg-cyber-borderDim" />
+        <div className="hidden sm:block h-3.5 w-px bg-cyber-borderDim" />
+
+        {/* DSP Audio Rack Trigger Button */}
+        <button
+          onClick={() => setDspOpen(true)}
+          className={`flex items-center space-x-1 px-2 py-0.5 border transition-all text-[11px] ${
+            isDspEnabled && eqPreset !== 'FLAT'
+              ? 'border-cyber-cyan bg-cyber-cyan/15 text-cyber-cyan shadow-cyan'
+              : 'bg-cyber-bgCard border-cyber-border/60 hover:border-cyber-cyan hover:text-white text-cyber-textDim'
+          }`}
+          title="Audio DSP Equalizer & Sound Profiles"
+        >
+          <Sliders size={13} className="text-cyber-cyan" />
+          <span>DSP RACK</span>
+        </button>
 
         {/* Playlist Queue Button */}
         <button
@@ -52,7 +69,7 @@ export const TopBar = () => {
           title="Load Custom Audio & LRC"
         >
           <UploadCloud size={13} className="text-cyber-cyan" />
-          <span className="hidden md:inline">LOAD</span>
+          <span className="hidden md:inline">IMPORT</span>
         </button>
 
         {/* Settings */}
