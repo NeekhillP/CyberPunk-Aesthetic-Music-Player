@@ -4,8 +4,8 @@
 ---
 
 ## 1. Current State
-- **Status:** Phase 4 Complete (5-Band Graphic EQ, Cyber DSP FX Rack, Dynamics Compressor Limiter & IndexedDB Media Vault).
-- **Version:** v0.4.0-dev
+- **Status:** Phase 4 Released (5-Band Graphic EQ, Cyber DSP FX Rack, Dynamics Compressor Limiter & IndexedDB Media Vault).
+- **Version:** v0.4.0
 - **Repository:** `https://github.com/NeekhillP/CyberPunk-Aesthetic-Music-Player.git`
 - **Operational Features:**
   - ✅ **5-Band Graphic Equalizer:**
@@ -32,12 +32,11 @@
 
 ## 2. Changelog
 
-### [v0.4.0-dev] - 2026-08-16
+### [v0.4.0] - 2026-08-16
 - Extended Web Audio API graph: `MediaElementAudioSourceNode` $\rightarrow$ `5-Band BiquadFilter EQ` $\rightarrow$ `DynamicsCompressor` $\rightarrow$ `Cyber FX Filter` $\rightarrow$ `GainNode` $\rightarrow$ `AnalyserNode` $\rightarrow$ `destination`.
 - Built `src/components/AudioRack.jsx` terminal drawer with 5-band faders and presets (`FLAT`, `CYBER-BASS`, `VAPORWAVE`, `CRT-RADIO`).
 - Built `src/services/dbService.js` IndexedDB Media Vault to store audio files and artwork locally.
 - Connected IndexedDB auto-hydration on app startup in `App.jsx` and added `[ CLEAR VAULT ]` in `PlaylistModal.jsx`.
-- Verified build and tested DSP audio chain.
 
 ### [v0.3.0] - 2026-08-15
 - Added metadata swap/editor, speed modulation engine, and 3-mode visualizer.
@@ -56,14 +55,14 @@
 ## 3. Roadmap & Immediate Priorities
 - [x] **Phase 1:** Core terminal player wireframe, visualizer, duotone art, LRC sync.
 - [x] **Milestone Checkpoint:** Git setup, initial commit, GitHub remote link.
-- [x] **Phase 2:** Real Web Audio HTML5 playback pipeline, offline audio tracks, multi-file batch drag & drop importer.
+- [x] **Phase 2:** Real Web Audio HTML5 playback pipeline, offline audio tracks, multi-file batch drag & drop importer with auto-pair LRC.
 - [x] **Phase 2.5:** ID3 tag extraction, embedded cover art rendering, and LRCLIB online lyric auto-fetch.
 - [x] **Phase 2.6:** Robust artwork pipeline with iTunes Search API online fallback.
 - [x] **Phase 2.7:** Multilingual/Devanagari query sanitizer and in-app lyric paste terminal.
 - [x] **Phase 2.8:** Strict lyric validation & verification.
 - [x] **Phase 3:** Quick metadata swap/editor, playback speed engine, multi-mode visualizer.
-- [x] **Phase 4 (Current):** 5-Band Graphic Equalizer, Cyber DSP FX profiles, Dynamics Compressor limiter, IndexedDB Media Vault.
-- [ ] **Phase 5:** Desktop packaging (Electron / Tauri wrapper scripts) & PWA offline manifest.
+- [x] **Phase 4:** 5-Band Graphic Equalizer, Cyber DSP FX profiles, Dynamics Compressor limiter, IndexedDB Media Vault.
+- [ ] **Phase 5 (Current):** Advanced Queue HUD (Shuffle/Repeat/Reorder), YouTube Video Noise Stripper, and Native OS Media Session keys.
 
 ---
 
