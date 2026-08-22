@@ -4,36 +4,38 @@
 ---
 
 ## 1. Current State
-- **Status:** Phase 5 Complete (Advanced Queue HUD, YouTube Video Noise Stripper, Playback Modes & OS Media Session Keys).
-- **Version:** v0.5.0-dev
+- **Status:** Phase 6 Complete (Desktop Packaging via Tauri v2, System Tray, Global Media Keys & Native Dialogs).
+- **Version:** v0.5.0-desktop
 - **Repository:** `https://github.com/NeekhillP/CyberPunk-Aesthetic-Music-Player.git`
 - **Operational Features:**
+  - ✅ **Tauri v2 Native Desktop Architecture:**
+    - Scaffolded `src-tauri` directory with `tauri.conf.json`, `Cargo.toml`, `build.rs`, `lib.rs`, `main.rs`, and capabilities.
+    - Configured desktop window: 1200x760 (min 900x600), centered, `#0c0205` void background, custom title `"SEVEN.FM // CYBERPUNK TERMINAL"`.
+  - ✅ **System Tray & Global Media Keys:**
+    - Cyberpunk system tray icon with context menu (`Show / Hide Terminal`, `Play / Pause`, `Next Track`, `Quit`).
+    - Global OS media key hooks (`MediaPlayPause`, `MediaTrackNext`, `MediaTrackPrevious`) allowing playback control when minimized.
+  - ✅ **Native OS File Dialog Integration:**
+    - `@tauri-apps/plugin-dialog` & `@tauri-apps/plugin-fs` bridge allowing native file selection for `.mp3`, `.wav`, `.flac`, `.lrc` alongside web drag-and-drop.
   - ✅ **YouTube Video Clutter Auto-Stripper (`sanitizeQuery.js` & `metadataExtractor.js`):**
     - Automatically cleans video flags like `(Official Music Video)`, `(Official Audio)`, `[Lyrics]`, `(Prod. by ...)`, `Lyrical Video` from displayed titles and search queries.
-    - Example: `"Ji Chanta Matina (Official Music Video)"` $\rightarrow$ cleans to `"Ji Chanta Matina"`.
   - ✅ **Advanced Queue HUD & Drag-and-Drop Reordering (`PlaylistModal.jsx`):**
     - Interactive playlist queue with drag-and-drop ordering and `[ ↑ ]` `[ ↓ ]` step buttons.
-    - Individual track deletion `[ ✕ ]` with automatic IndexedDB synchronization.
-    - Full Media Vault purge action `[ CLEAR VAULT ]`.
+    - Single track deletion `[ ✕ ]` with automatic IndexedDB synchronization.
   - ✅ **Transport Playback Modes (`TransportControls.jsx`):**
-    - `[ 🔁 REPEAT: OFF | ALL | ONE ]` mode cycler with automatic track repeat/loop logic.
-    - `[ 🔀 SHUFFLE: ON | OFF ]` non-repeating randomized index selection.
-  - ✅ **Native OS Media Session API (`useMediaSession.js`):**
-    - Pushes track title, artist, album, and high-res cover art to OS lock screen and notification widgets.
-    - Connects hardware keyboard media keys (Play/Pause, Previous/Next, Seek +/- 5s).
+    - `[ 🔁 REPEAT: OFF | ALL | ONE ]` and `[ 🔀 SHUFFLE: ON | OFF ]`.
   - ✅ **5-Band Graphic Equalizer & Master Limiter:** 60Hz to 12kHz with DynamicsCompressor.
-  - ✅ **IndexedDB Media Vault:** Permanent client-side audio/lyrics/art persistence with boot hydration.
+  - ✅ **IndexedDB Media Vault:** Permanent client-side audio/lyrics/art persistence.
   - ✅ **Multi-Mode Visualizers:** `BARS`, `WAVE` (Oscilloscope), and `RADAR`.
 
 ---
 
 ## 2. Changelog
 
-### [v0.5.0-dev] - 2026-08-22
-- Enhanced `src/utils/sanitizeQuery.js` and `metadataExtractor.js` with automated YouTube video metadata and bracketed noise stripper.
-- Added playback mode controls (`repeatMode: OFF/ALL/ONE` and `isShuffle: ON/OFF`) to `playerStore.js` and `TransportControls.jsx`.
-- Upgraded `PlaylistModal.jsx` to support drag-and-drop reordering, `[ ↑ ]` / `[ ↓ ]` buttons, and single-track deletion.
-- Integrated `src/hooks/useMediaSession.js` connecting `navigator.mediaSession` with OS lock screen controls and hardware media keys.
+### [v0.5.0-desktop] - 2026-08-22
+- Scaffolded Tauri v2 native desktop application in `src-tauri`.
+- Integrated `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`, and `@tauri-apps/plugin-global-shortcut`.
+- Built `src/services/tauriService.js` connecting system tray events, native dialogs, and global OS shortcuts to the React audio state.
+- Added desktop development and build scripts to `package.json` (`tauri:dev` and `tauri:build`).
 - Tested and verified production build with Vite.
 
 ### [v0.4.0] - 2026-08-16
@@ -43,23 +45,28 @@
 ### [v0.3.0] - 2026-08-15
 - Added metadata swap/editor, speed modulation engine, and 3-mode visualizer.
 
-### [v0.2.8] - 2026-08-15
-- Re-architected `lyricsService.js` for strict title verification.
-
 ---
 
-## 3. Roadmap & Immediate Priorities
-- [x] **Phase 1:** Core terminal player wireframe, visualizer, duotone art, LRC sync.
-- [x] **Milestone Checkpoint:** Git setup, initial commit, GitHub remote link.
-- [x] **Phase 2:** Real Web Audio HTML5 playback pipeline, offline audio tracks, batch importer.
-- [x] **Phase 2.5:** ID3 tag extraction, embedded cover art rendering, and LRCLIB online lyric auto-fetch.
-- [x] **Phase 2.6:** Robust artwork pipeline with iTunes Search API online fallback.
-- [x] **Phase 2.7:** Multilingual/Devanagari query sanitizer and in-app lyric paste terminal.
-- [x] **Phase 2.8:** Strict lyric validation & verification.
-- [x] **Phase 3:** Quick metadata swap/editor, playback speed engine, multi-mode visualizer.
-- [x] **Phase 4:** 5-Band Graphic Equalizer, Cyber DSP FX profiles, Dynamics Compressor limiter, IndexedDB Media Vault.
-- [x] **Phase 5 (Current):** Advanced Queue HUD (Shuffle/Repeat/Reorder), YouTube Video Noise Stripper, and Native OS Media Session keys.
-- [ ] **Phase 6:** Desktop packaging (Electron / Tauri wrapper scripts) & PWA offline install manifest.
+## 3. Desktop Build & Run Instructions
+
+### Prerequisites
+1. **Node.js:** v18+ (currently running v24)
+2. **Rust & Cargo:** Install via [https://rustup.rs](https://rustup.rs)
+3. **C++ Build Tools (Windows):** Visual Studio C++ Build Tools or Build Tools for Visual Studio with "Desktop development with C++".
+
+### Commands
+- Run in Desktop Dev Mode:
+  ```bash
+  npm run tauri:dev
+  ```
+- Build Standalone Desktop Installer / Executable:
+  ```bash
+  npm run tauri:build
+  ```
+- Run Web Browser Dev Mode:
+  ```bash
+  npm run dev
+  ```
 
 ---
 

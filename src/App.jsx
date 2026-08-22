@@ -4,6 +4,7 @@ import { extractAudioMetadata } from './utils/metadataExtractor';
 import { resolveTrackLyrics } from './utils/lyricsService';
 import { resolveTrackArtwork } from './utils/artworkService';
 import { useMediaSession } from './hooks/useMediaSession';
+import { initTauriDesktopEvents } from './services/tauriService';
 import { TopBar } from './components/TopBar';
 import { AlbumArt } from './components/AlbumArt';
 import { MetadataCard } from './components/MetadataCard';
@@ -43,10 +44,19 @@ export const App = () => {
     initAudioEngine();
   }, [initAudioEngine]);
 
-  // 2. Activate Native OS Media Session (Lockscreen & Media Keys)
+  // 2. Initialize Native Tauri Desktop Events (Tray & Global Shortcuts)
+  useEffect(() => {
+    let cleanup = () => {};
+    initTauriDesktopEvents({ togglePlay, nextTrack, prevTrack }).then((cleaner) => {
+      cleanup = cleaner || (() => {});
+    });
+    return () => cleanup();
+  }, [togglePlay, nextTrack, prevTrack]);
+
+  // 3. Activate Native OS Media Session (Lockscreen & Media Keys)
   useMediaSession();
 
-  // 3. Global Keyboard Shortcuts
+  // 4. Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
@@ -93,7 +103,7 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, seek, currentTime, duration, volume, setVolume, toggleMute, toggleAutoScroll, nextTrack, prevTrack]);
 
-  // 4. Global Window Drag and Drop with Auto Title De-Clutter & LRCLIB Pipeline
+  // 5. Global Window Drag and Drop with Auto Title De-Clutter & LRCLIB Pipeline
   const handleWindowDragOver = (e) => {
     e.preventDefault();
     setIsWindowDragging(true);

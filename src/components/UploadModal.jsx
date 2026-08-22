@@ -3,7 +3,8 @@ import { usePlayerStore } from '../store/playerStore';
 import { extractAudioMetadata } from '../utils/metadataExtractor';
 import { resolveTrackLyrics } from '../utils/lyricsService';
 import { resolveTrackArtwork } from '../utils/artworkService';
-import { X, Upload, CheckCircle2, Trash2, Loader2 } from 'lucide-react';
+import { openNativeFileDialog, isTauri } from '../services/tauriService';
+import { X, Upload, CheckCircle2, Trash2, Loader2, FolderOpen } from 'lucide-react';
 
 export const UploadModal = () => {
   const { isUploadOpen, setUploadOpen, addBatchTracks } = usePlayerStore();
@@ -100,8 +101,13 @@ export const UploadModal = () => {
     }
   };
 
-  const handleFileInputChange = async (e) => {
-    if (e.target.files) {
+  const handleNativeOrFileInput = async (e) => {
+    if (isTauri()) {
+      const nativeFiles = await openNativeFileDialog();
+      if (nativeFiles && nativeFiles.length > 0) {
+        await processFileList(nativeFiles);
+      }
+    } else if (e.target.files) {
       await processFileList(e.target.files);
     }
   };
@@ -167,16 +173,26 @@ export const UploadModal = () => {
                   Auto ID3 + iTunes HD Cover Art Lookup • Permanent IndexedDB Media Vault
                 </p>
 
-                <label className="mt-2 inline-block px-3 py-1.5 bg-cyber-bgCardLight border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black cursor-pointer transition-colors font-bold text-xs">
-                  SELECT AUDIO FILES
-                  <input
-                    type="file"
-                    multiple
-                    accept="audio/*,.lrc,.txt"
-                    onChange={handleFileInputChange}
-                    className="hidden"
-                  />
-                </label>
+                {isTauri() ? (
+                  <button
+                    onClick={handleNativeOrFileInput}
+                    className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1.5 bg-cyber-bgCardLight border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black transition-colors font-bold text-xs"
+                  >
+                    <FolderOpen size={13} />
+                    <span>OPEN NATIVE FILE PICKER</span>
+                  </button>
+                ) : (
+                  <label className="mt-2 inline-block px-3 py-1.5 bg-cyber-bgCardLight border border-cyber-cyan text-cyber-cyan hover:bg-cyber-cyan hover:text-black cursor-pointer transition-colors font-bold text-xs">
+                    SELECT AUDIO FILES
+                    <input
+                      type="file"
+                      multiple
+                      accept="audio/*,.lrc,.txt"
+                      onChange={handleNativeOrFileInput}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
             </div>
           )}
