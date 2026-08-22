@@ -1,7 +1,9 @@
 import * as musicMetadata from 'music-metadata-browser';
+import { cleanClutter } from './sanitizeQuery';
 
 /**
  * Extracts ID3 metadata, embedded album art, and embedded lyrics from an Audio File
+ * Automatically strips YouTube video clutter from extracted titles.
  */
 export async function extractAudioMetadata(file) {
   const result = {
@@ -17,21 +19,21 @@ export async function extractAudioMetadata(file) {
   const baseName = file.name.replace(/\.[^/.]+$/, '');
   if (baseName.includes(' - ')) {
     const parts = baseName.split(' - ');
-    result.artist = parts[0].trim();
-    result.title = parts.slice(1).join(' - ').trim();
+    result.artist = cleanClutter(parts[0].trim());
+    result.title = cleanClutter(parts.slice(1).join(' - ').trim());
   } else {
-    result.title = baseName;
+    result.title = cleanClutter(baseName);
     result.artist = 'Unknown Artist';
   }
 
-  // 2. Parse using music-metadata-browser (supports ID3v1, ID3v2.2, ID3v2.3, ID3v2.4, Vorbis, FLAC, MP4/M4A)
+  // 2. Parse using music-metadata-browser (supports ID3v1, ID3v2, Vorbis, FLAC, MP4/M4A)
   try {
     const metadata = await musicMetadata.parseBlob(file, { duration: true });
     
     if (metadata.common) {
-      if (metadata.common.title) result.title = metadata.common.title;
-      if (metadata.common.artist) result.artist = metadata.common.artist;
-      if (metadata.common.album) result.album = metadata.common.album;
+      if (metadata.common.title) result.title = cleanClutter(metadata.common.title);
+      if (metadata.common.artist) result.artist = cleanClutter(metadata.common.artist);
+      if (metadata.common.album) result.album = cleanClutter(metadata.common.album);
 
       // Embedded Cover Art (APIC / picture)
       if (metadata.common.picture && metadata.common.picture.length > 0) {

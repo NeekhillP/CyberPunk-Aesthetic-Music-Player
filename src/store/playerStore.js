@@ -21,6 +21,10 @@ export const usePlayerStore = create(
       playbackRate: 1.0,
       visualizerMode: 'BARS', // 'BARS' | 'WAVE' | 'RADAR'
       
+      // Playback Modes
+      repeatMode: 'ALL', // 'OFF' | 'ALL' | 'ONE'
+      isShuffle: false,
+
       // DSP & EQ State
       isDspOpen: false,
       isDspEnabled: true,
@@ -43,7 +47,35 @@ export const usePlayerStore = create(
       // Initialize audio & IndexedDB vault on launch
       initAudioEngine: async () => {
         audioEngine.onEndedCallback = () => {
-          get().nextTrack();
+          const { repeatMode, isShuffle, playlist, currentTrackIndex, playTrack, seek } = get();
+
+          if (repeatMode === 'ONE') {
+            seek(0);
+            playTrack(currentTrackIndex);
+            return;
+          }
+
+          if (isShuffle && playlist.length > 1) {
+            let nextIdx;
+            do {
+              nextIdx = Math.floor(Math.random() * playlist.length);
+            } while (nextIdx === currentTrackIndex);
+            playTrack(nextIdx);
+            return;
+          }
+
+          if (repeatMode === 'ALL') {
+            const nextIdx = (currentTrackIndex + 1) % playlist.length;
+            playTrack(nextIdx);
+            return;
+          }
+
+          // repeatMode === 'OFF'
+          if (currentTrackIndex < playlist.length - 1) {
+            playTrack(currentTrackIndex + 1);
+          } else {
+            set({ isPlaying: false, currentTime: 0 });
+          }
         };
 
         audioEngine.onTimeUpdateCallback = (time) => {
@@ -75,9 +107,7 @@ export const usePlayerStore = create(
           const vaultTracks = await getAllVaultTracks();
           if (vaultTracks && vaultTracks.length > 0) {
             set((state) => {
-              // Combine default tracks with persisted vault tracks
               const merged = [...DEFAULT_TRACKS, ...vaultTracks];
-              // De-duplicate by ID
               const unique = Array.from(new Map(merged.map(t => [t.id, t])).values());
               return { playlist: unique };
             });
@@ -136,7 +166,15 @@ export const usePlayerStore = create(
       },
 
       nextTrack: () => {
-        const { currentTrackIndex, playlist, playTrack } = get();
+        const { currentTrackIndex, playlist, playTrack, isShuffle } = get();
+        if (isShuffle && playlist.length > 1) {
+          let nextIdx;
+          do {
+            nextIdx = Math.floor(Math.random() * playlist.length);
+          } while (nextIdx === currentTrackIndex);
+          playTrack(nextIdx);
+          return;
+        }
         const nextIndex = (currentTrackIndex + 1) % playlist.length;
         playTrack(nextIndex);
       },
@@ -178,6 +216,67 @@ export const usePlayerStore = create(
 
       setVisualizerMode: (mode) => {
         set({ visualizerMode: mode });
+      },
+
+      // Playback Modes
+      toggleRepeatMode: () => {
+        const modes = ['OFF', 'ALL', 'ONE'];
+        const current = get().repeatMode;
+        const nextMode = modes[(modes.indexOf(current) + 1) % modes.length];
+        set({ repeatMode: nextMode });
+      },
+
+      toggleShuffle: () => {
+        set((state) => ({ isShuffle: !state.isShuffle }));
+      },
+
+      // Reordering & Queue Management
+      moveTrackUp: (index) => {
+        if (index <= 0) return;
+        const { playlist, currentTrackIndex } = get();
+        const updated = [...playlist];
+        const temp = updated[index];
+        updated[index] = updated[index - 1];
+        updated[index - 1] = temp;
+
+        let newCurrent = currentTrackIndex;
+        if (currentTrackIndex === index) newCurrent = index - 1;
+        else if (currentTrackIndex === index - 1) newCurrent = index;
+
+        set({ playlist: updated, currentTrackIndex: newCurrent });
+      },
+
+      moveTrackDown: (index) => {
+        const { playlist, currentTrackIndex } = get();
+        if (index >= playlist.length - 1) return;
+        const updated = [...playlist];
+        const temp = updated[index];
+        updated[index] = updated[index + 1];
+        updated[index + 1] = temp;
+
+        let newCurrent = currentTrackIndex;
+        if (currentTrackIndex === index) newCurrent = index + 1;
+        else if (currentTrackIndex === index + 1) newCurrent = index;
+
+        set({ playlist: updated, currentTrackIndex: newCurrent });
+      },
+
+      reorderPlaylist: (startIndex, endIndex) => {
+        const { playlist, currentTrackIndex } = get();
+        const updated = Array.from(playlist);
+        const [removed] = updated.splice(startIndex, 1);
+        updated.splice(endIndex, 0, removed);
+
+        let newCurrent = currentTrackIndex;
+        if (currentTrackIndex === startIndex) {
+          newCurrent = endIndex;
+        } else if (startIndex < currentTrackIndex && endIndex >= currentTrackIndex) {
+          newCurrent = currentTrackIndex - 1;
+        } else if (startIndex > currentTrackIndex && endIndex <= currentTrackIndex) {
+          newCurrent = currentTrackIndex + 1;
+        }
+
+        set({ playlist: updated, currentTrackIndex: newCurrent });
       },
 
       // DSP Actions
@@ -333,7 +432,6 @@ export const usePlayerStore = create(
       addBatchTracks: async (newTracks) => {
         if (!newTracks || newTracks.length === 0) return;
         
-        // Save to IndexedDB Media Vault
         await saveBatchTracksToVault(newTracks);
 
         set((state) => {
@@ -379,6 +477,8 @@ export const usePlayerStore = create(
         autoScroll: state.autoScroll,
         playbackRate: state.playbackRate,
         visualizerMode: state.visualizerMode,
+        repeatMode: state.repeatMode,
+        isShuffle: state.isShuffle,
         isDspEnabled: state.isDspEnabled,
         eqPreset: state.eqPreset,
         eqGains: state.eqGains,

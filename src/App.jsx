@@ -3,6 +3,7 @@ import { usePlayerStore } from './store/playerStore';
 import { extractAudioMetadata } from './utils/metadataExtractor';
 import { resolveTrackLyrics } from './utils/lyricsService';
 import { resolveTrackArtwork } from './utils/artworkService';
+import { useMediaSession } from './hooks/useMediaSession';
 import { TopBar } from './components/TopBar';
 import { AlbumArt } from './components/AlbumArt';
 import { MetadataCard } from './components/MetadataCard';
@@ -37,12 +38,15 @@ export const App = () => {
   const [isGlobalProcessing, setIsGlobalProcessing] = useState(false);
   const [globalScanStatus, setGlobalScanStatus] = useState('');
 
-  // Initialize Web Audio Engine & IndexedDB Vault
+  // 1. Initialize Web Audio Engine & IndexedDB Vault
   useEffect(() => {
     initAudioEngine();
   }, [initAudioEngine]);
 
-  // Global Keyboard Shortcuts
+  // 2. Activate Native OS Media Session (Lockscreen & Media Keys)
+  useMediaSession();
+
+  // 3. Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
@@ -89,7 +93,7 @@ export const App = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [togglePlay, seek, currentTime, duration, volume, setVolume, toggleMute, toggleAutoScroll, nextTrack, prevTrack]);
 
-  // Global Window Drag and Drop with ID3, Artwork & LRCLIB Pipeline
+  // 4. Global Window Drag and Drop with Auto Title De-Clutter & LRCLIB Pipeline
   const handleWindowDragOver = (e) => {
     e.preventDefault();
     setIsWindowDragging(true);
@@ -200,7 +204,7 @@ export const App = () => {
             &gt; DETECTED AUDIO / LRC TELEMETRY
           </h2>
           <p className="text-sm text-cyber-cyan mt-2">
-            RELEASE TO EXTRACT ID3 METADATA, PERSIST TO VAULT &amp; AUTO-SYNC LYRICS
+            RELEASE TO AUTO-STRIP CLUTTER, PERSIST TO VAULT &amp; AUTO-SYNC LYRICS
           </p>
         </div>
       )}

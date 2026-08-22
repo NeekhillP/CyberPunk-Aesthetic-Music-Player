@@ -1,7 +1,8 @@
 /**
- * Multilingual and Regional Query Sanitizer
+ * Multilingual and Regional Query Sanitizer with Comprehensive Clutter & YouTube Video Noise Stripper
  * Handles mixed scripts (e.g. Romanized + Devanagari / Nepali: "Kasari कसरी"),
- * removes title clutter, and produces prioritized search candidate queries for APIs.
+ * strips YouTube/web video noise flags like "(Official Music Video)", "(Audio)", "[Lyrics]",
+ * and produces clean display titles and prioritized search candidate queries for APIs.
  */
 
 export function sanitizeMetadata(rawTitle = '', rawArtist = '', rawAlbum = '') {
@@ -21,12 +22,12 @@ export function sanitizeMetadata(rawTitle = '', rawArtist = '', rawAlbum = '') {
   // Generate prioritized search candidates
   const candidates = [];
 
-  // 1. Primary Latin Combination (e.g. "Yabesh Thapa Kasari")
+  // 1. Primary Latin Combination (e.g. "Sushant KC Ji Chanta Matina" or "Yabesh Thapa Kasari")
   if (romanArtist && romanTitle && romanArtist !== 'Unknown Artist' && romanArtist !== 'Local Audio') {
     candidates.push(`${romanArtist} ${romanTitle}`.trim());
   }
 
-  // 2. Primary Latin Song Title (e.g. "Kasari")
+  // 2. Primary Latin Song Title (e.g. "Ji Chanta Matina")
   if (romanTitle) {
     candidates.push(romanTitle.trim());
   }
@@ -58,21 +59,30 @@ export function sanitizeMetadata(rawTitle = '', rawArtist = '', rawAlbum = '') {
     nativeTitle,
     romanArtist,
     nativeArtist,
-    searchCandidates: uniqueCandidates.length > 0 ? uniqueCandidates : [rawTitle],
+    searchCandidates: uniqueCandidates.length > 0 ? uniqueCandidates : [cleanTitleStr || rawTitle],
   };
 }
 
 /**
- * Strips bracketed clutter, audio suffixes, production tags, and video notes
+ * Strips bracketed clutter, audio suffixes, production tags, YouTube video metadata, and video notes
+ * Examples:
+ * - "Ji Chanta Matina (Official Music Video)" -> "Ji Chanta Matina"
+ * - "Kasari कसरी (Official Audio) [Prod. by Storenvy]" -> "Kasari कसरी"
+ * - "Sushant KC - Sarangi (Official Video) [4K]" -> "Sushant KC - Sarangi"
  */
 export function cleanClutter(text) {
   if (!text || typeof text !== 'string') return '';
 
   return text
-    .replace(/\.[a-zA-Z0-9]{2,5}$/, '') // Strip extensions like .mp3, .wav
-    .replace(/\s*[\(\[](feat\.|ft\.|official|audio|video|remaster|live|explicit|lyrics|hd|4k|hq|music video|prod\.|produced by|prod by|lyrical video|visualizer|mv|neer|full audio|special).*?[\)\]]/gi, '')
-    .replace(/\s*-\s*(official|audio|video|lyrics|hd|4k|hq|mv).*$/gi, '')
-    .replace(/\s*(feat\.|ft\.|prod\.|produced by).*$/gi, '')
+    // 1. Strip file extensions like .mp3, .wav, .m4a, .flac
+    .replace(/\.[a-zA-Z0-9]{2,5}$/, '')
+    // 2. Strip bracketed YouTube/Media metadata tags
+    .replace(/\s*[\(\[](official\s*(music)?\s*video|music\s*video|official\s*audio|full\s*audio|audio|lyrics?|lyrical\s*video|4k|hd|hq|prod\..*?|produced\s*by.*?|visualizer|mv|full\s*song|remastered?|clean|explicit|studio\s*version|acoustic\s*version|live\s*session)[\)\]]/gi, '')
+    // 3. Strip trailing separators followed by official video/audio keywords
+    .replace(/\s*[-–—|]\s*(official\s*(music)?\s*video|music\s*video|official\s*audio|audio|lyrics?|lyrical\s*video|4k|hd|hq|mv).*$/gi, '')
+    // 4. Strip trailing feature/producer credits if isolated at end
+    .replace(/\s*(feat\.|ft\.|prod\.|produced\s*by).*$/gi, '')
+    // 5. Clean extra whitespace
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
@@ -83,8 +93,6 @@ export function cleanClutter(text) {
 export function splitScripts(str) {
   if (!str) return { latin: '', native: '' };
 
-  // Devanagari range: \u0900-\u097F
-  // General Non-Latin: \u0900-\u097F\u0400-\u04FF\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF
   const devanagariRegex = /[\u0900-\u097F]+/g;
   const latinRegex = /[a-zA-Z0-9\s'’-]+/g;
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayerStore } from '../store/playerStore';
-import { Gauge } from 'lucide-react';
+import { Gauge, Repeat, Repeat1, Shuffle } from 'lucide-react';
 
 export const TransportControls = () => {
   const {
@@ -16,6 +16,10 @@ export const TransportControls = () => {
     toggleAutoScroll,
     playbackRate,
     setPlaybackRate,
+    repeatMode,
+    toggleRepeatMode,
+    isShuffle,
+    toggleShuffle,
   } = usePlayerStore();
 
   const handleVolumeChange = (e) => {
@@ -59,6 +63,41 @@ export const TransportControls = () => {
           title="Next Track"
         >
           <span className="tracking-tighter">[ &gt;&gt;| ]</span>
+        </button>
+      </div>
+
+      {/* Playback Mode Selectors: Shuffle & Repeat */}
+      <div className="grid grid-cols-2 gap-2 text-[10px]">
+        {/* Shuffle Button */}
+        <button
+          onClick={toggleShuffle}
+          className={`py-1 px-2 border flex items-center justify-center space-x-1 transition-all ${
+            isShuffle
+              ? 'border-cyber-cyan bg-cyber-cyan/20 text-white font-bold shadow-cyan'
+              : 'border-cyber-borderDim bg-cyber-bgDark text-cyber-textDim hover:text-white'
+          }`}
+          title="Toggle Shuffle Mode"
+        >
+          <Shuffle size={12} className={isShuffle ? 'text-cyber-cyan' : 'text-cyber-textDim'} />
+          <span>SHUFFLE: {isShuffle ? 'ON' : 'OFF'}</span>
+        </button>
+
+        {/* Repeat Button */}
+        <button
+          onClick={toggleRepeatMode}
+          className={`py-1 px-2 border flex items-center justify-center space-x-1 transition-all ${
+            repeatMode !== 'OFF'
+              ? 'border-cyber-neon bg-cyber-neon/20 text-white font-bold shadow-neon-sm'
+              : 'border-cyber-borderDim bg-cyber-bgDark text-cyber-textDim hover:text-white'
+          }`}
+          title="Cycle Repeat Mode (OFF -> ALL -> ONE)"
+        >
+          {repeatMode === 'ONE' ? (
+            <Repeat1 size={12} className="text-cyber-neon" />
+          ) : (
+            <Repeat size={12} className={repeatMode === 'ALL' ? 'text-cyber-neon' : 'text-cyber-textDim'} />
+          )}
+          <span>REPEAT: {repeatMode}</span>
         </button>
       </div>
 

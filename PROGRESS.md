@@ -4,39 +4,41 @@
 ---
 
 ## 1. Current State
-- **Status:** Phase 4 Released (5-Band Graphic EQ, Cyber DSP FX Rack, Dynamics Compressor Limiter & IndexedDB Media Vault).
-- **Version:** v0.4.0
+- **Status:** Phase 5 Complete (Advanced Queue HUD, YouTube Video Noise Stripper, Playback Modes & OS Media Session Keys).
+- **Version:** v0.5.0-dev
 - **Repository:** `https://github.com/NeekhillP/CyberPunk-Aesthetic-Music-Player.git`
 - **Operational Features:**
-  - ✅ **5-Band Graphic Equalizer:**
-    - Parametric Biquad filter chain at `60Hz`, `250Hz`, `1kHz`, `4kHz`, and `12kHz` with range `-12dB` to `+12dB`.
-    - Smooth `setTargetAtTime` gain transitions.
-  - ✅ **Master Dynamics Compressor Limiter:**
-    - Zero-clipping gain staging with threshold `-6dB`, knee `12`, ratio `8`, attack `0.003s`, and release `0.25s`.
-  - ✅ **Cyber FX Profiles & Filters:**
-    - `FLAT`: Direct neutral studio monitoring.
-    - `CYBER-BASS`: Heavy +8dB sub-bass boost with warm low-mids.
-    - `VAPORWAVE`: Lo-fi high-shelf rolloff with analog warmth.
-    - `CRT-RADIO`: Bandpass radio filter (cutting <350Hz & >3.8kHz, mid presence peak).
-  - ✅ **Neon Audio Rack Drawer (`AudioRack.jsx`):**
-    - Slide-out terminal configuration drawer (`> audio_dsp.cfg`).
-    - 5 interactive neon faders, preset triggers, and master DSP bypass switch.
-  - ✅ **IndexedDB Media Vault (`dbService.js`):**
-    - Permanent client-side caching of imported audio files, cover art blobs, and synchronized lyrics.
-    - Auto-hydration on application launch with `[ CLEAR VAULT ]` queue management.
-  - ✅ **Quick Metadata Corrector & Swap:** `[ ⇄ SWAP ]` and `[ EDIT ]`.
-  - ✅ **Playback Speed & Lo-Fi Modulation Engine:** `0.5x` - `2.0x` variable speed.
-  - ✅ **Multi-Mode Visualizers:** `BARS`, `WAVE`, and `RADAR`.
+  - ✅ **YouTube Video Clutter Auto-Stripper (`sanitizeQuery.js` & `metadataExtractor.js`):**
+    - Automatically cleans video flags like `(Official Music Video)`, `(Official Audio)`, `[Lyrics]`, `(Prod. by ...)`, `Lyrical Video` from displayed titles and search queries.
+    - Example: `"Ji Chanta Matina (Official Music Video)"` $\rightarrow$ cleans to `"Ji Chanta Matina"`.
+  - ✅ **Advanced Queue HUD & Drag-and-Drop Reordering (`PlaylistModal.jsx`):**
+    - Interactive playlist queue with drag-and-drop ordering and `[ ↑ ]` `[ ↓ ]` step buttons.
+    - Individual track deletion `[ ✕ ]` with automatic IndexedDB synchronization.
+    - Full Media Vault purge action `[ CLEAR VAULT ]`.
+  - ✅ **Transport Playback Modes (`TransportControls.jsx`):**
+    - `[ 🔁 REPEAT: OFF | ALL | ONE ]` mode cycler with automatic track repeat/loop logic.
+    - `[ 🔀 SHUFFLE: ON | OFF ]` non-repeating randomized index selection.
+  - ✅ **Native OS Media Session API (`useMediaSession.js`):**
+    - Pushes track title, artist, album, and high-res cover art to OS lock screen and notification widgets.
+    - Connects hardware keyboard media keys (Play/Pause, Previous/Next, Seek +/- 5s).
+  - ✅ **5-Band Graphic Equalizer & Master Limiter:** 60Hz to 12kHz with DynamicsCompressor.
+  - ✅ **IndexedDB Media Vault:** Permanent client-side audio/lyrics/art persistence with boot hydration.
+  - ✅ **Multi-Mode Visualizers:** `BARS`, `WAVE` (Oscilloscope), and `RADAR`.
 
 ---
 
 ## 2. Changelog
 
+### [v0.5.0-dev] - 2026-08-22
+- Enhanced `src/utils/sanitizeQuery.js` and `metadataExtractor.js` with automated YouTube video metadata and bracketed noise stripper.
+- Added playback mode controls (`repeatMode: OFF/ALL/ONE` and `isShuffle: ON/OFF`) to `playerStore.js` and `TransportControls.jsx`.
+- Upgraded `PlaylistModal.jsx` to support drag-and-drop reordering, `[ ↑ ]` / `[ ↓ ]` buttons, and single-track deletion.
+- Integrated `src/hooks/useMediaSession.js` connecting `navigator.mediaSession` with OS lock screen controls and hardware media keys.
+- Tested and verified production build with Vite.
+
 ### [v0.4.0] - 2026-08-16
-- Extended Web Audio API graph: `MediaElementAudioSourceNode` $\rightarrow$ `5-Band BiquadFilter EQ` $\rightarrow$ `DynamicsCompressor` $\rightarrow$ `Cyber FX Filter` $\rightarrow$ `GainNode` $\rightarrow$ `AnalyserNode` $\rightarrow$ `destination`.
-- Built `src/components/AudioRack.jsx` terminal drawer with 5-band faders and presets (`FLAT`, `CYBER-BASS`, `VAPORWAVE`, `CRT-RADIO`).
-- Built `src/services/dbService.js` IndexedDB Media Vault to store audio files and artwork locally.
-- Connected IndexedDB auto-hydration on app startup in `App.jsx` and added `[ CLEAR VAULT ]` in `PlaylistModal.jsx`.
+- Extended Web Audio API graph with 5-band Graphic EQ, Dynamics Compressor, and Cyber DSP profiles.
+- Built IndexedDB Media Vault.
 
 ### [v0.3.0] - 2026-08-15
 - Added metadata swap/editor, speed modulation engine, and 3-mode visualizer.
@@ -44,25 +46,20 @@
 ### [v0.2.8] - 2026-08-15
 - Re-architected `lyricsService.js` for strict title verification.
 
-### [v0.2.7] - 2026-08-15
-- Built `sanitizeQuery.js` with regex script-splitting for Devanagari songs.
-
-### [v0.2.6] - 2026-08-15
-- Built multi-tier cover art pipeline with iTunes 600x600 HD fallback.
-
 ---
 
 ## 3. Roadmap & Immediate Priorities
 - [x] **Phase 1:** Core terminal player wireframe, visualizer, duotone art, LRC sync.
 - [x] **Milestone Checkpoint:** Git setup, initial commit, GitHub remote link.
-- [x] **Phase 2:** Real Web Audio HTML5 playback pipeline, offline audio tracks, multi-file batch drag & drop importer with auto-pair LRC.
+- [x] **Phase 2:** Real Web Audio HTML5 playback pipeline, offline audio tracks, batch importer.
 - [x] **Phase 2.5:** ID3 tag extraction, embedded cover art rendering, and LRCLIB online lyric auto-fetch.
 - [x] **Phase 2.6:** Robust artwork pipeline with iTunes Search API online fallback.
 - [x] **Phase 2.7:** Multilingual/Devanagari query sanitizer and in-app lyric paste terminal.
 - [x] **Phase 2.8:** Strict lyric validation & verification.
 - [x] **Phase 3:** Quick metadata swap/editor, playback speed engine, multi-mode visualizer.
 - [x] **Phase 4:** 5-Band Graphic Equalizer, Cyber DSP FX profiles, Dynamics Compressor limiter, IndexedDB Media Vault.
-- [ ] **Phase 5 (Current):** Advanced Queue HUD (Shuffle/Repeat/Reorder), YouTube Video Noise Stripper, and Native OS Media Session keys.
+- [x] **Phase 5 (Current):** Advanced Queue HUD (Shuffle/Repeat/Reorder), YouTube Video Noise Stripper, and Native OS Media Session keys.
+- [ ] **Phase 6:** Desktop packaging (Electron / Tauri wrapper scripts) & PWA offline install manifest.
 
 ---
 

@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePlayerStore } from '../store/playerStore';
-import { X, Play, Music, Radio, Trash2, Plus, Database, RefreshCw } from 'lucide-react';
+import { X, Play, Music, Radio, Trash2, Plus, Database, RefreshCw, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 import { formatTime } from '../utils/lrcParser';
 
 export const PlaylistModal = () => {
@@ -10,11 +10,16 @@ export const PlaylistModal = () => {
     playTrack,
     removeTrack,
     clearVaultTracks,
+    moveTrackUp,
+    moveTrackDown,
+    reorderPlaylist,
     isPlaylistOpen,
     setPlaylistOpen,
     setUploadOpen,
     isPlaying,
   } = usePlayerStore();
+
+  const [draggedIdx, setDraggedIdx] = useState(null);
 
   if (!isPlaylistOpen) return null;
 
@@ -24,6 +29,23 @@ export const PlaylistModal = () => {
     if (window.confirm('PURGE MEDIA VAULT: Remove all custom imported tracks from IndexedDB storage?')) {
       await clearVaultTracks();
     }
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedIdx(index);
+    e.dataTransfer.setData('text/plain', index);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e, targetIndex) => {
+    e.preventDefault();
+    if (draggedIdx !== null && draggedIdx !== targetIndex) {
+      reorderPlaylist(draggedIdx, targetIndex);
+    }
+    setDraggedIdx(null);
   };
 
   return (
@@ -55,29 +77,45 @@ export const PlaylistModal = () => {
           </div>
         </div>
 
-        {/* Track List */}
-        <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+        {/* Track List with Drag & Drop + Move Up/Down */}
+        <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
           {playlist.map((track, idx) => {
             const isCurrent = idx === currentTrackIndex;
             return (
               <div
                 key={track.id || idx}
-                className={`p-2.5 border transition-all flex items-center justify-between group ${
+                draggable
+                onDragStart={(e) => handleDragStart(e, idx)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, idx)}
+                className={`p-2 border transition-all flex items-center justify-between group ${
                   isCurrent
                     ? 'border-cyber-neon bg-cyber-neon/15 text-white shadow-neon-sm'
                     : 'border-cyber-borderDim bg-cyber-bgDark hover:border-cyber-neon/60 hover:bg-cyber-bgCardLight text-cyber-textDim'
-                }`}
+                } ${draggedIdx === idx ? 'opacity-40 border-dashed border-cyber-cyan' : ''}`}
               >
+                {/* Drag Handle & Index */}
+                <div className="flex items-center space-x-1.5 cursor-grab text-cyber-pinkMuted group-hover:text-cyber-cyan shrink-0">
+                  <GripVertical size={13} />
+                  <div className="w-5 text-center font-bold text-cyber-neon shrink-0">
+                    {isCurrent && isPlaying ? '*' : (idx + 1).toString().padStart(2, '0')}
+                  </div>
+                </div>
+
+                {/* Track Details & Cover Thumbnail */}
                 <div
                   onClick={() => {
                     playTrack(idx);
                     setPlaylistOpen(false);
                   }}
-                  className="flex items-center space-x-3 cursor-pointer flex-1 min-w-0"
+                  className="flex items-center space-x-2.5 cursor-pointer flex-1 min-w-0 mx-2"
                 >
-                  <div className="w-6 text-center font-bold text-cyber-neon shrink-0">
-                    {isCurrent && isPlaying ? '*' : (idx + 1).toString().padStart(2, '0')}
-                  </div>
+                  <img
+                    src={track.coverUrl || track.cover || '/album_covers/loving_machine.jpg'}
+                    alt="art"
+                    className="w-7 h-7 object-cover border border-cyber-borderDim shrink-0 duotone-filter"
+                    onError={(e) => { e.currentTarget.src = '/album_covers/loving_machine.jpg'; }}
+                  />
                   <div className="min-w-0">
                     <div className="font-bold text-white tracking-wide truncate font-sans md:font-mono">
                       {track.title}
@@ -88,11 +126,39 @@ export const PlaylistModal = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2 shrink-0 ml-2">
-                  <span className="text-[10px] text-cyber-cyan border border-cyber-cyanDim px-1.5 py-0.5">
+                {/* Controls: Reorder Up/Down, Play, Delete */}
+                <div className="flex items-center space-x-1.5 shrink-0">
+                  <span className="text-[10px] text-cyber-cyan border border-cyber-cyanDim px-1 py-0.2 hidden sm:inline">
                     {formatTime(track.duration || 180)}
                   </span>
+
+                  {/* Move Up Button */}
+                  <button
+                    disabled={idx === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      moveTrackUp(idx);
+                    }}
+                    className="p-0.5 text-cyber-textDim hover:text-cyber-cyan disabled:opacity-20 transition-colors"
+                    title="Move Track Up"
+                  >
+                    <ChevronUp size={13} />
+                  </button>
+
+                  {/* Move Down Button */}
+                  <button
+                    disabled={idx === playlist.length - 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      moveTrackDown(idx);
+                    }}
+                    className="p-0.5 text-cyber-textDim hover:text-cyber-cyan disabled:opacity-20 transition-colors"
+                    title="Move Track Down"
+                  >
+                    <ChevronDown size={13} />
+                  </button>
                   
+                  {/* Play Button */}
                   <button
                     onClick={() => {
                       playTrack(idx);
@@ -100,9 +166,10 @@ export const PlaylistModal = () => {
                     }}
                     className="p-1 hover:text-white"
                   >
-                    <Play size={13} className={isCurrent ? 'text-cyber-neon fill-cyber-neon' : 'text-cyber-textDim'} />
+                    <Play size={12} className={isCurrent ? 'text-cyber-neon fill-cyber-neon' : 'text-cyber-textDim'} />
                   </button>
 
+                  {/* Delete Button */}
                   {playlist.length > 1 && (
                     <button
                       onClick={(e) => {
@@ -112,7 +179,7 @@ export const PlaylistModal = () => {
                       className="p-1 text-cyber-pinkMuted hover:text-cyber-neon transition-colors"
                       title="Remove from queue"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={12} />
                     </button>
                   )}
                 </div>
@@ -125,7 +192,7 @@ export const PlaylistModal = () => {
         <div className="mt-4 pt-3 border-t border-cyber-borderDim/60 text-[10px] text-cyber-textDim flex justify-between items-center">
           <div className="flex items-center space-x-1.5">
             <Database size={11} className="text-cyber-cyan" />
-            <span>INDEXEDDB PERSISTED</span>
+            <span>INDEXEDDB MEDIA VAULT</span>
           </div>
 
           {hasVaultTracks && (
